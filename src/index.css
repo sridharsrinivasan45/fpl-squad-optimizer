@@ -1,0 +1,403 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #0d0f12;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Color Palette */
+  --bg-main: #0d0f12;
+  --bg-card: rgba(22, 28, 36, 0.65);
+  --bg-card-hover: rgba(30, 38, 50, 0.8);
+  --primary: #02c39a;
+  --primary-hover: #02a481;
+  --primary-glow: rgba(2, 195, 154, 0.2);
+  --secondary: #3a86c8;
+  --warning: #f7b731;
+  --error: #eb4d4b;
+  --neutral-gray: #4b5563;
+  --border-color: rgba(255, 255, 255, 0.08);
+  
+  --pitch-green: #1b4d22;
+  --pitch-green-dark: #143818;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top left, #161f30 0%, #0d0f12 70%);
+  background-attachment: fixed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Tooltip and Info styling */
+.info-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.info-trigger:hover {
+  background-color: var(--primary);
+  color: #fff;
+}
+
+.info-trigger:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1c2331;
+  border: 1px solid var(--border-color);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: normal;
+  white-space: pre-wrap;
+  width: 240px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  z-index: 1000;
+}
+
+/* Glassmorphism containers */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(2, 195, 154, 0.3);
+}
+
+/* Football Pitch styling */
+.pitch-container {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  max-width: 800px;
+  background: linear-gradient(to bottom, var(--pitch-green) 0%, var(--pitch-green-dark) 100%);
+  border: 4px solid rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 100px rgba(0,0,0,0.4), 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* Grass stripes */
+.pitch-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.03) 10%,
+    transparent 10%,
+    transparent 20%
+  );
+  pointer-events: none;
+}
+
+/* Pitch lines */
+.pitch-half-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.pitch-center-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20%;
+  aspect-ratio: 1;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.pitch-box-top {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 45%;
+  height: 18%;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-top: none;
+  transform: translateX(-50%);
+}
+
+.pitch-box-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 45%;
+  height: 18%;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-bottom: none;
+  transform: translateX(-50%);
+}
+
+/* Position Rows on Pitch */
+.pitch-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 25%;
+  position: relative;
+  z-index: 10;
+  gap: 16px;
+  padding: 0 16px;
+}
+
+/* Player Pitch Card */
+.pitch-player-card {
+  width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: transform 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.pitch-player-card:hover {
+  transform: scale(1.1);
+}
+
+.pitch-shirt {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: radial-gradient(circle at top left, #3498db, #2980b9);
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: bold;
+  font-size: 12px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  position: relative;
+  transition: box-shadow 0.2s ease;
+}
+
+.pitch-shirt.gk {
+  background: radial-gradient(circle at top left, #f1c40f, #f39c12);
+}
+
+.pitch-shirt.def {
+  background: radial-gradient(circle at top left, #2ecc71, #27ae60);
+}
+
+.pitch-shirt.mid {
+  background: radial-gradient(circle at top left, #9b59b6, #8e44ad);
+}
+
+.pitch-shirt.fwd {
+  background: radial-gradient(circle at top left, #e74c3c, #c0392b);
+}
+
+.pitch-player-card:hover .pitch-shirt {
+  box-shadow: 0 0 12px var(--primary);
+}
+
+/* Badges */
+.badge-c, .badge-vc, .badge-warning {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  border: 1px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.badge-c {
+  background-color: #e74c3c;
+  color: #fff;
+}
+
+.badge-vc {
+  background-color: #34495e;
+  color: #fff;
+}
+
+.badge-warning {
+  background-color: var(--warning);
+  color: #000;
+  left: -8px;
+  right: auto;
+}
+
+.pitch-player-info {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.pitch-player-name {
+  background-color: rgba(13, 15, 18, 0.85);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
+}
+
+.pitch-player-points {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--primary);
+  background-color: rgba(13, 15, 18, 0.9);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-top: 2px;
+  display: inline-block;
+}
+
+/* Animations */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(2, 195, 154, 0.4);
+  }
+  70% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 10px rgba(2, 195, 154, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(2, 195, 154, 0);
+  }
+}
+
+.pulse-btn {
+  animation: pulse 2s infinite;
+}
+
+.pulse-btn:hover {
+  animation: none;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.02);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Modal styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.85);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.modal-content {
+  background-color: #121824;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Responsive Table */
+.custom-table-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+table.custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+table.custom-table th {
+  background-color: rgba(255,255,255,0.03);
+  padding: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.6);
+  border-bottom: 1px solid var(--border-color);
+}
+
+table.custom-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+table.custom-table tr:hover {
+  background-color: rgba(255,255,255,0.02);
+}
