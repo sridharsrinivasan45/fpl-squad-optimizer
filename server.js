@@ -16,9 +16,9 @@ app.use((req, res, next) => {
 });
 
 // Proxy route for FPL API
-app.get('/api/*', async (req, res) => {
-  const apiPath = req.params[0];
-  const query = new URLSearchParams(req.query as Record<string, string>).toString();
+app.get('/api/*apiPath', async (req, res) => {
+  const apiPath = req.params.apiPath;
+  const query = new URLSearchParams(req.query).toString();
   const url = `https://fantasy.premierleague.com/api/${apiPath}${query ? '?' + query : ''}`;
   
   try {
@@ -35,7 +35,7 @@ app.get('/api/*', async (req, res) => {
 
     const data = await response.json();
     res.json(data);
-  } catch (error: any) {
+  } catch (error) {
     console.error(`Proxy Error for path ${apiPath}:`, error.message);
     res.status(500).json({
       error: `Failed to load data from FPL API (${apiPath}).`,
@@ -48,7 +48,7 @@ app.get('/api/*', async (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // SPA fallback for frontend client routing
-app.get('*', (req, res) => {
+app.get('/*splat', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
