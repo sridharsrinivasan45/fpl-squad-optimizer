@@ -142,21 +142,21 @@ function App() {
   return (
     <div className="min-h-screen pb-12">
       {/* Top Navigation / Header */}
-      <header className="border-b border-[rgba(255,255,255,0.08)] bg-[rgba(13,15,18,0.8)] backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-[#02c39a] p-2 rounded-lg flex items-center justify-center shadow-lg shadow-rgba(2,195,154,0.3)">
-              <Flame className="w-5 h-5 text-[#0d0f12]" />
+      <header className="app-header">
+        <div className="header-container">
+          <div className="logo-section">
+            <div className="logo-icon-wrapper">
+              <Flame className="logo-icon" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white tracking-wider m-0">FPL OPTIMIZER</h1>
-              <span className="text-[10px] text-gray-400 block -mt-1">COMBINED 15-MAN SOLVER</span>
+              <h1 className="logo-title">FPL OPTIMIZER</h1>
+              <span className="logo-subtitle">COMBINED 15-MAN SOLVER</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="header-actions">
             <button 
               onClick={() => setShowHowToUse(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[rgba(255,255,255,0.1)] text-sm text-gray-300 hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-all"
+              className="btn-outline"
             >
               <HelpCircle className="w-4 h-4" />
               How to Use
@@ -164,20 +164,20 @@ function App() {
             <button
               onClick={fetchAndOptimize}
               disabled={loading}
-              className="flex items-center gap-2 px-5 py-2 bg-[#02c39a] hover:bg-[#02a481] disabled:bg-[#02a481]/50 text-black font-semibold text-sm rounded-lg transition-all shadow-lg hover:shadow-[#02c39a]/20 cursor-pointer"
+              className="btn-primary"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Get This Week\'s XI'}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Get This Week's XI"}
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 mt-8">
+      <main className="app-main">
         
         {/* Info Banner when Pre-season Mode is Active */}
         {result && (
-          <div className={`glass-panel mb-6 flex items-center gap-4 border-l-4 ${isPreSeason ? 'border-l-[#f7b731]' : 'border-l-[#02c39a]'}`}>
+          <div className={`banner-panel ${isPreSeason ? 'banner-preseason' : 'banner-inseason'}`}>
             {isPreSeason ? (
               <>
                 <AlertTriangle className="w-6 h-6 text-[#f7b731] shrink-0" />
@@ -212,7 +212,7 @@ function App() {
             </p>
             <button
               onClick={fetchAndOptimize}
-              className="px-8 py-3 bg-[#02c39a] hover:bg-[#02a481] text-black font-bold rounded-xl transition-all shadow-xl hover:shadow-[#02c39a]/30 pulse-btn text-base"
+              className="btn-primary btn-large pulse-btn mx-auto"
             >
               Get This Week's XI
             </button>
@@ -254,13 +254,13 @@ function App() {
 
         {/* Dashboard Grid when solution loaded */}
         {result && !loading && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="dashboard-grid">
             
             {/* LEFT COLUMN: Visual Football Pitch + Bench row (8 columns) */}
-            <div className="lg:col-span-7 flex flex-col gap-6">
+            <div className="grid-left-col">
               
               {/* Squad Header */}
-              <div className="flex items-center justify-between">
+              <div className="squad-title-row">
                 <div>
                   <h3 className="text-lg font-bold text-white m-0">Optimal Starting XI</h3>
                   <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
@@ -268,7 +268,7 @@ function App() {
                     <span>Selected for {gameweekName}</span>
                   </div>
                 </div>
-                <div className="px-3 py-1 bg-[rgba(2,195,154,0.15)] text-[#02c39a] font-bold text-xs rounded-full border border-[rgba(2,195,154,0.2)]">
+                <div className="formation-badge">
                   {defs.length}-{mids.length}-{fwds.length} Formation
                 </div>
               </div>
@@ -335,7 +335,7 @@ function App() {
                   <Users className="w-5 h-5 text-[#3a86c8]" />
                   <h4 className="text-white font-bold text-sm m-0">Bench Players</h4>
                 </div>
-                <div className="grid grid-cols-4 gap-4">
+                <div className="bench-grid">
                   {result.bench.map((player) => {
                     const posClasses = ['gk', 'def', 'mid', 'fwd'];
                     const posClass = posClasses[player.element_type - 1] || 'mid';
@@ -344,7 +344,7 @@ function App() {
                     return (
                       <div 
                         key={player.id} 
-                        className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl p-3 text-center flex flex-col items-center relative info-trigger"
+                        className="bench-card info-trigger"
                         data-tooltip={`Name: ${player.web_name}\nClub: ${player.team_name}\nPrice: £${(player.now_cost / 10).toFixed(1)}m\nAvailability: ${player.chance_of_playing_next_round}%\nProjected Points: ${player.projected_points}`}
                       >
                         <div className={`w-8 h-8 rounded-full mb-1.5 flex items-center justify-center font-bold text-xs text-white pitch-shirt ${posClass}`}>
@@ -371,9 +371,9 @@ function App() {
                     No points projection ties occurred for the selected positions in this squad configuration.
                   </p>
                 ) : (
-                  <div className="flex flex-col gap-2">
+                  <div className="tiebreaker-container">
                     {result.alternatives.map((alt, idx) => (
-                      <div key={idx} className="bg-[rgba(58,134,200,0.06)] border border-[rgba(58,134,200,0.15)] rounded-lg p-3 text-xs text-gray-300">
+                      <div key={idx} className="tiebreaker-item">
                         <strong>Tie Resolved:</strong> Selected <strong>{alt.selectedPlayerName}</strong> over <strong>{alt.alternativePlayerName}</strong> for the squad. Both players projected at <strong>{alt.projectedPoints}</strong> points, but {alt.selectedPlayerName} was selected due to a lower ownership percentage (<strong>{alt.selectedOwnership}%</strong> vs <strong>{alt.alternativeOwnership}%</strong>).
                       </div>
                     ))}
@@ -384,39 +384,39 @@ function App() {
             </div>
 
             {/* RIGHT COLUMN: Squad Statistics + List Breakdown (5 columns) */}
-            <div className="lg:col-span-5 flex flex-col gap-6">
+            <div className="grid-right-col">
               
               {/* Summary Numbers Card */}
               <div className="glass-panel">
                 <h4 className="text-white font-bold text-sm mb-4 tracking-wider">SQUAD SUMMARY</h4>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4 text-center">
-                    <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 mb-1">
+                <div className="metrics-row">
+                  <div className="metric-card">
+                    <div className="metric-card-title">
                       <DollarSign className="w-3.5 h-3.5 text-[#02c39a]" />
                       <span>Budget Spent</span>
                     </div>
-                    <span className="text-2xl font-extrabold text-white">£{result.totalCost}m</span>
-                    <span className="text-[10px] text-gray-400 block mt-1">out of £100.0m limit</span>
+                    <span className="metric-card-value">£{result.totalCost}m</span>
+                    <span className="metric-card-subtext">out of £100.0m limit</span>
                   </div>
 
-                  <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4 text-center">
-                    <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 mb-1">
+                  <div className="metric-card">
+                    <div className="metric-card-title">
                       <TrendingUp className="w-3.5 h-3.5 text-[#02c39a]" />
                       <span>Projected Points</span>
                     </div>
-                    <span className="text-2xl font-extrabold text-[#02c39a]">{result.totalProjectedPoints}</span>
-                    <span className="text-[10px] text-gray-400 block mt-1">Starting XI Sum</span>
+                    <span className="metric-card-value" style={{ color: '#02c39a' }}>{result.totalProjectedPoints}</span>
+                    <span className="metric-card-subtext">Starting XI Sum</span>
                   </div>
                 </div>
 
-                <div className="mt-4 text-center bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-xl p-3 flex justify-between items-center px-6">
+                <div className="metric-full-row">
                   <span className="text-xs text-gray-400">Total 15-Man Squad Projected Points:</span>
                   <span className="text-sm font-bold text-white">{result.squadProjectedPoints}</span>
                 </div>
 
-                <div className="mt-6 border-t border-[rgba(255,255,255,0.08)] pt-4">
-                  <div className="flex items-center gap-3 bg-[rgba(2,195,154,0.06)] border border-[rgba(2,195,154,0.15)] rounded-lg p-3">
+                <div className="captain-panel">
+                  <div className="captain-card">
                     <Award className="w-8 h-8 text-[#02c39a]" />
                     <div>
                       <div className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Suggested Captain</div>
@@ -444,13 +444,13 @@ function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="bg-[rgba(2,195,154,0.05)]">
-                        <td colSpan={6} className="font-bold text-[#02c39a] py-2 px-3 text-[10px] uppercase tracking-wider">Starting XI (11 Players)</td>
+                      <tr className="row-category-starters">
+                        <td colSpan={6}>Starting XI (11 Players)</td>
                       </tr>
                       {result.starters.map((player) => renderPlayerRow(player, true))}
                       
-                      <tr className="bg-[rgba(58,134,200,0.05)]">
-                        <td colSpan={6} className="font-bold text-[#3a86c8] py-2 px-3 text-[10px] uppercase tracking-wider">Bench (4 Players)</td>
+                      <tr className="row-category-bench">
+                        <td colSpan={6}>Bench (4 Players)</td>
                       </tr>
                       {result.bench.map((player) => renderPlayerRow(player, false))}
                     </tbody>
