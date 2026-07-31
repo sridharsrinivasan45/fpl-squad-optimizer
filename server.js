@@ -15,6 +15,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`[Proxy Server] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // Proxy route for FPL API
 app.get('/api/*apiPath', async (req, res) => {
   const apiPath = req.params.apiPath;
