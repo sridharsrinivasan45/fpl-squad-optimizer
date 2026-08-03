@@ -305,11 +305,11 @@ function App() {
         <div className="header-container">
           <div className="logo-section">
             <div className="logo-icon-wrapper">
-              <Flame className="logo-icon" />
+              <TrendingUp className="logo-icon" />
             </div>
             <div>
-              <h1 className="logo-title">FPL OPTIMIZER</h1>
-              <span className="logo-subtitle">COMBINED 15-MAN SOLVER</span>
+              <h1 className="logo-title">FPL ANALYTICS</h1>
+              <span className="logo-subtitle">DECISION SUPPORT SYSTEM</span>
             </div>
           </div>
           <div className="header-actions">
@@ -850,8 +850,8 @@ function App() {
                           </div>
 
                           {/* Ratings Grid */}
-                          <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3">Decision Suitability Ratings</h4>
-                          <div className="grid grid-cols-2 gap-4 mb-6">
+                          <h4 className="text-gray-400 font-bold text-xs uppercase tracking-wider mb-3">Decision Suitability Ratings</h4>
+                          <div className="flex flex-col gap-3.5 mb-6">
                             {Object.entries(rec.ratings).map(([key, val]) => {
                               const displayLabel = key
                                 .replace('Rating', '')
@@ -859,9 +859,20 @@ function App() {
                                 .replace(/^./, str => str.toUpperCase());
                               
                               return (
-                                <div key={key} className="flex justify-between items-center text-xs p-2.5 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
-                                  <span className="text-gray-400">{displayLabel}</span>
-                                  <strong className="text-white font-mono">{val.toFixed(1)} / 10</strong>
+                                <div key={key} className="flex flex-col gap-1 text-xs">
+                                  <div className="flex justify-between text-gray-300 font-medium">
+                                    <span>{displayLabel}</span>
+                                    <span className="font-mono text-white font-semibold">{val.toFixed(1)} / 10</span>
+                                  </div>
+                                  <div className="w-full h-1 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
+                                    <div 
+                                      className="h-full transition-all duration-300" 
+                                      style={{ 
+                                        width: `${val * 10}%`,
+                                        backgroundColor: val >= 8.0 ? '#10b981' : val >= 5.0 ? '#38bdf8' : '#ef4444' 
+                                      }}
+                                    />
+                                  </div>
                                 </div>
                               );
                             })}
@@ -1071,50 +1082,50 @@ function App() {
                     <div className="glass-panel text-left">
                       <div className="flex justify-between items-center mb-4">
                         <div>
-                          <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold block mb-1">Comparison Decision Verdict</span>
-                          <h2 className="text-xl font-bold text-white m-0 flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded text-xs bg-[#02c39a]/10 text-[#02c39a]">🟢</span>
+                          <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold block mb-1.5">Comparison Decision Verdict</span>
+                          <h2 className="text-xl font-bold text-white m-0 flex items-center gap-2.5">
+                            <span className="w-2 h-2 rounded-full bg-[#10b981] inline-block shrink-0"></span>
                             {report.verdictLabel}
                           </h2>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-300 leading-relaxed font-semibold bg-[rgba(2,195,154,0.04)] border border-[rgba(2,195,154,0.15)] rounded-xl p-4 m-0">
+                      <p className="text-xs text-gray-300 leading-relaxed font-semibold bg-[rgba(56,189,248,0.04)] border border-[rgba(56,189,248,0.1)] rounded-xl p-4 m-0">
                         {report.verdictExplanation}
                       </p>
                     </div>
 
                     {/* Technical Metric comparison grid */}
                     <div className="glass-panel text-left">
-                      <h4 className="text-white font-bold text-sm mb-4 tracking-wider">SIDE-BY-SIDE METRICS</h4>
+                      <h4 className="text-gray-400 font-bold text-xs uppercase tracking-wider mb-4">SIDE-BY-SIDE METRICS</h4>
                       <div className="custom-table-container">
                         <table className="custom-table">
                           <thead>
                             <tr>
                               <th>Metric</th>
-                              <th className="text-center font-bold text-[#02c39a]">{compPlayerA.web_name}</th>
-                              <th className="text-center font-bold text-[#3a86c8]">{compPlayerB.web_name}</th>
+                              <th className="text-center font-bold text-white">{compPlayerA.web_name}</th>
+                              <th className="text-center font-bold text-white">{compPlayerB.web_name}</th>
                             </tr>
                           </thead>
                           <tbody>
                             <tr>
-                              <td className="text-gray-400 font-semibold">Expected Points</td>
-                              <td className="text-center font-mono font-bold text-white">{compPlayerA.projected_points} pts</td>
-                              <td className="text-center font-mono font-bold text-white">{compPlayerB.projected_points} pts</td>
+                              <td className="text-gray-400 font-medium">Expected Points</td>
+                              <td className="text-center font-mono font-semibold text-white">{compPlayerA.projected_points} pts</td>
+                              <td className="text-center font-mono font-semibold text-white">{compPlayerB.projected_points} pts</td>
                             </tr>
                             <tr>
-                              <td className="text-gray-400 font-semibold">Cost</td>
+                              <td className="text-gray-400 font-medium">Cost</td>
                               <td className="text-center font-mono text-white">£{(compPlayerA.now_cost/10).toFixed(1)}m</td>
                               <td className="text-center font-mono text-white">£{(compPlayerB.now_cost/10).toFixed(1)}m</td>
                             </tr>
                             <tr>
-                              <td className="text-gray-400 font-semibold">Ownership</td>
+                              <td className="text-gray-400 font-medium">Ownership</td>
                               <td className="text-center font-mono text-white">{compPlayerA.selected_by_percent}%</td>
                               <td className="text-center font-mono text-white">{compPlayerB.selected_by_percent}%</td>
                             </tr>
                             <tr>
                               <td className="text-gray-400 font-semibold">Overall Fantasy Rating</td>
-                              <td className="text-center font-mono font-bold text-[#02c39a]">{report.ratingsA.ratings.overallRating.toFixed(1)} / 10</td>
-                              <td className="text-center font-mono font-bold text-[#3a86c8]">{report.ratingsB.ratings.overallRating.toFixed(1)} / 10</td>
+                              <td className="text-center font-mono font-bold text-[#10b981]">{report.ratingsA.ratings.overallRating.toFixed(1)} / 10</td>
+                              <td className="text-center font-mono font-bold text-white">{report.ratingsB.ratings.overallRating.toFixed(1)} / 10</td>
                             </tr>
                             <tr>
                               <td className="text-gray-400">Value for Money Rating</td>
@@ -1535,10 +1546,31 @@ function App() {
             <div className="grid-left-col">
               
               {/* Executive Decision Summary */}
-              <div className="glass-panel text-left animate-fade-in" style={{ borderLeft: '4px solid #02c39a', padding: '1.25rem', marginBottom: '1.5rem' }}>
-                <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-1">Executive Decision Summary</h4>
-                <p className="text-xs text-gray-300 leading-relaxed m-0 font-medium">
-                  This recommended starting lineup yields a total projection of <strong className="text-[#02c39a]">{activeResult.totalProjectedPoints} expected points</strong> for the upcoming fixtures, using <strong className="text-[#02c39a]">£{activeResult.totalCost.toFixed(1)}m</strong> of available team capital. The optimal layout utilizes a <strong className="text-white">{defs.length}-{mids.length}-{fwds.length} structure</strong>, captaining <strong className="text-white">{activeResult.captain?.web_name}</strong> ({activeResult.captain?.projected_points} projected pts) due to their high points ceiling and rotation security.
+              <div className="glass-panel text-left animate-fade-in" style={{ padding: '1.5rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                  <h4 className="text-gray-400 font-bold text-xs uppercase tracking-wider m-0">Executive Decision Summary</h4>
+                  <span className="text-[10px] text-gray-500 font-mono">MODEL STATUS: SOLVED (OPTIMAL)</span>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: '0.5rem' }}>
+                  <div>
+                    <span className="text-[10px] text-gray-400 block uppercase tracking-wider">Projected Yield</span>
+                    <span className="text-2xl font-bold text-[#10b981] font-mono">{activeResult.totalProjectedPoints.toFixed(1)} <span className="text-xs font-semibold text-gray-400">EP</span></span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-400 block uppercase tracking-wider">Total Cost</span>
+                    <span className="text-2xl font-bold text-white font-mono">£{activeResult.totalCost.toFixed(1)}m</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-400 block uppercase tracking-wider">Active Formation</span>
+                    <span className="text-2xl font-bold text-white font-mono">{defs.length}-{mids.length}-{fwds.length}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-400 block uppercase tracking-wider">Captain Selected</span>
+                    <span className="text-2xl font-bold text-white font-mono">{activeResult.captain?.web_name}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 leading-relaxed m-0" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
+                  The ILP solver selected {activeResult.starters.length} starters maximizing total points under a £100.0m limit. Captain choice is <strong className="text-white">{activeResult.captain?.web_name}</strong> due to their points expectation ({activeResult.captain?.projected_points} pts) and playing probability.
                 </p>
               </div>
               
@@ -1681,25 +1713,25 @@ function App() {
               </div>
 
               {/* FPL Coach Corner */}
-              <div className="glass-panel text-left animate-fade-in" style={{ marginTop: '1.5rem', borderLeft: '4px solid #f7b731' }}>
+              <div className="glass-panel text-left animate-fade-in" style={{ marginTop: '1.5rem', border: '1px solid var(--border-color)' }}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-lg">💡</span>
-                  <h4 className="text-white font-bold text-sm m-0">FPL COACH'S ANALYSIS</h4>
+                  <span className="w-2 h-2 rounded-full bg-[#38bdf8]"></span>
+                  <h4 className="text-gray-400 font-bold text-xs uppercase tracking-wider m-0">FPL Coach's Analysis</h4>
                 </div>
                 <div className="flex flex-col gap-2.5 text-xs text-gray-300">
-                  <p className="m-0 leading-relaxed">
+                  <p className="m-0 leading-relaxed text-gray-400">
                     {isPreSeason 
                       ? "Pre-season mode is currently active. The projection engine uses historical minutes and baseline PPG stats. Focus on locked starters who are assured of 90 minutes in their early matches." 
                       : "Form multipliers are currently active. The solver prioritizes hot streaks and high PPG. Keep a close eye on late injury updates before finalizing your squad."}
                   </p>
                   {activeResult.totalCost > 99.0 && (
-                    <p className="m-0 leading-relaxed text-[#f7b731]">
-                      ⚠️ <strong>High Budget Concentration:</strong> You have allocated £{activeResult.totalCost.toFixed(1)}m on this squad. While it maximizes immediate returns, it reduces your ability to fund price rises or future transfers.
+                    <p className="m-0 leading-relaxed text-[#f59e0b]">
+                      <strong>High Budget Concentration:</strong> You have allocated £{activeResult.totalCost.toFixed(1)}m on this squad. While it maximizes immediate returns, it reduces your ability to fund price rises or future transfers.
                     </p>
                   )}
                   {activeResult.bench.reduce((acc, p) => acc + p.projected_points, 0) > 10 && (
-                    <p className="m-0 leading-relaxed text-[#02c39a]">
-                      ℹ️ <strong>Strong Bench Security:</strong> Your bench contributes {Math.round(activeResult.bench.reduce((acc, p) => acc + p.projected_points, 0) * 10) / 10} points. This serves as an excellent hedge against unexpected rotations or starting delays.
+                    <p className="m-0 leading-relaxed text-[#10b981]">
+                      <strong>Strong Bench Security:</strong> Your bench contributes {Math.round(activeResult.bench.reduce((acc, p) => acc + p.projected_points, 0) * 10) / 10} points. This serves as an excellent hedge against unexpected rotations or starting delays.
                     </p>
                   )}
                 </div>
@@ -2020,6 +2052,8 @@ function PlayerPitchCard({ player, captainId, viceCaptainId }: PitchCardProps) {
   const isVc = player.id === viceCaptainId;
   const positionClasses = ['gk', 'def', 'mid', 'fwd'];
   const posClass = positionClasses[player.element_type - 1] || 'mid';
+  const positionAbbreviations = ['GK', 'DEF', 'MID', 'FWD'];
+  const posAbbr = positionAbbreviations[player.element_type - 1] || 'MID';
   const hasInjuryWarning = player.chance_of_playing_next_round < 75;
 
   const tooltipText = `Name: ${player.web_name}\nClub: ${player.team_name}\nPrice: £${(player.now_cost / 10).toFixed(1)}m\nAvailability: ${player.chance_of_playing_next_round}%\nProjected Points: ${player.projected_points}`;
@@ -2030,7 +2064,7 @@ function PlayerPitchCard({ player, captainId, viceCaptainId }: PitchCardProps) {
       data-tooltip={tooltipText}
     >
       <div className={`pitch-shirt ${posClass}`}>
-        {player.web_name[0]}
+        {posAbbr}
         {isCap && <div className="badge-c">C</div>}
         {isVc && <div className="badge-vc">VC</div>}
         {hasInjuryWarning && <div className="badge-warning">!</div>}
