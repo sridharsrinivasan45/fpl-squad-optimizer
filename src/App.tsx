@@ -69,6 +69,10 @@ function App() {
   // Scouting states
   const [scoutingPlayer, setScoutingPlayer] = useState<Player | null>(null);
   const [scoutingSearchQuery, setScoutingSearchQuery] = useState<string>('');
+  
+  // UX states
+  const [showAdvancedScout, setShowAdvancedScout] = useState<boolean>(false);
+  const [modalTab, setModalTab] = useState<'guide' | 'academy'>('guide');
 
   // Load database on mount
   const loadInitialData = async (force: boolean = false): Promise<Player[]> => {
@@ -817,39 +821,53 @@ function App() {
                         </div>
                       )}
 
-                      {/* Projection breakdown stats */}
-                      <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3">Expected Points Breakdown</h4>
-                      <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
-                          <span className="text-[10px] text-gray-400 block uppercase">Base Projection</span>
-                          <span className="text-lg font-bold text-white">{scoutingPlayer.breakdown?.baseProjection || scoutingPlayer.projected_points} pts</span>
-                        </div>
-                        <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
-                          <span className="text-[10px] text-gray-400 block uppercase">FDR Fixture Ease</span>
-                          <span className={`text-lg font-bold ${scoutingPlayer.breakdown && scoutingPlayer.breakdown.fixtureAdjustment >= 0 ? 'text-[#02c39a]' : 'text-[#e74c3c]'}`}>
-                            {scoutingPlayer.breakdown && scoutingPlayer.breakdown.fixtureAdjustment >= 0 ? '+' : ''}
-                            {scoutingPlayer.breakdown?.fixtureAdjustment || 0}%
-                          </span>
-                        </div>
+                      {/* Progressive Disclosure Toggle */}
+                      <div className="mb-6">
+                        <button
+                          onClick={() => setShowAdvancedScout(!showAdvancedScout)}
+                          className="w-full text-center py-2.5 border border-[rgba(255,255,255,0.08)] rounded-xl text-xs font-semibold text-gray-300 bg-[rgba(255,255,255,0.01)] hover:bg-[rgba(255,255,255,0.03)] transition-all cursor-pointer"
+                        >
+                          {showAdvancedScout ? "Hide Advanced Technical Metrics ▲" : "Show Advanced Technical Metrics ▼"}
+                        </button>
                       </div>
 
-                      {/* Ratings Grid */}
-                      <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3">Decision Suitability Ratings</h4>
-                      <div className="grid grid-cols-2 gap-4 mb-6">
-                        {Object.entries(rec.ratings).map(([key, val]) => {
-                          const displayLabel = key
-                            .replace('Rating', '')
-                            .replace(/([A-Z])/g, ' $1')
-                            .replace(/^./, str => str.toUpperCase());
-                          
-                          return (
-                            <div key={key} className="flex justify-between items-center text-xs p-2.5 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
-                              <span className="text-gray-400">{displayLabel}</span>
-                              <strong className="text-white font-mono">{val.toFixed(1)} / 10</strong>
+                      {showAdvancedScout && (
+                        <>
+                          {/* Projection breakdown stats */}
+                          <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3">Expected Points Breakdown</h4>
+                          <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                              <span className="text-[10px] text-gray-400 block uppercase">Base Projection</span>
+                              <span className="text-lg font-bold text-white">{scoutingPlayer.breakdown?.baseProjection || scoutingPlayer.projected_points} pts</span>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                              <span className="text-[10px] text-gray-400 block uppercase">FDR Fixture Ease</span>
+                              <span className={`text-lg font-bold ${scoutingPlayer.breakdown && scoutingPlayer.breakdown.fixtureAdjustment >= 0 ? 'text-[#02c39a]' : 'text-[#e74c3c]'}`}>
+                                {scoutingPlayer.breakdown && scoutingPlayer.breakdown.fixtureAdjustment >= 0 ? '+' : ''}
+                                {scoutingPlayer.breakdown?.fixtureAdjustment || 0}%
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Ratings Grid */}
+                          <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3">Decision Suitability Ratings</h4>
+                          <div className="grid grid-cols-2 gap-4 mb-6">
+                            {Object.entries(rec.ratings).map(([key, val]) => {
+                              const displayLabel = key
+                                .replace('Rating', '')
+                                .replace(/([A-Z])/g, ' $1')
+                                .replace(/^./, str => str.toUpperCase());
+                              
+                              return (
+                                <div key={key} className="flex justify-between items-center text-xs p-2.5 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
+                                  <span className="text-gray-400">{displayLabel}</span>
+                                  <strong className="text-white font-mono">{val.toFixed(1)} / 10</strong>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
 
                       {/* Confidence score */}
                       <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-2">Projection Confidence</h4>
@@ -1516,6 +1534,14 @@ function App() {
             {/* LEFT COLUMN: Visual Football Pitch + Bench row (8 columns) */}
             <div className="grid-left-col">
               
+              {/* Executive Decision Summary */}
+              <div className="glass-panel text-left animate-fade-in" style={{ borderLeft: '4px solid #02c39a', padding: '1.25rem', marginBottom: '1.5rem' }}>
+                <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-1">Executive Decision Summary</h4>
+                <p className="text-xs text-gray-300 leading-relaxed m-0 font-medium">
+                  This recommended starting lineup yields a total projection of <strong className="text-[#02c39a]">{activeResult.totalProjectedPoints} expected points</strong> for the upcoming fixtures, using <strong className="text-[#02c39a]">£{activeResult.totalCost.toFixed(1)}m</strong> of available team capital. The optimal layout utilizes a <strong className="text-white">{defs.length}-{mids.length}-{fwds.length} structure</strong>, captaining <strong className="text-white">{activeResult.captain?.web_name}</strong> ({activeResult.captain?.projected_points} projected pts) due to their high points ceiling and rotation security.
+                </p>
+              </div>
+              
               {/* Squad Header */}
               <div className="squad-title-row">
                 <div>
@@ -1652,6 +1678,31 @@ function App() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* FPL Coach Corner */}
+              <div className="glass-panel text-left animate-fade-in" style={{ marginTop: '1.5rem', borderLeft: '4px solid #f7b731' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-lg">💡</span>
+                  <h4 className="text-white font-bold text-sm m-0">FPL COACH'S ANALYSIS</h4>
+                </div>
+                <div className="flex flex-col gap-2.5 text-xs text-gray-300">
+                  <p className="m-0 leading-relaxed">
+                    {isPreSeason 
+                      ? "Pre-season mode is currently active. The projection engine uses historical minutes and baseline PPG stats. Focus on locked starters who are assured of 90 minutes in their early matches." 
+                      : "Form multipliers are currently active. The solver prioritizes hot streaks and high PPG. Keep a close eye on late injury updates before finalizing your squad."}
+                  </p>
+                  {activeResult.totalCost > 99.0 && (
+                    <p className="m-0 leading-relaxed text-[#f7b731]">
+                      ⚠️ <strong>High Budget Concentration:</strong> You have allocated £{activeResult.totalCost.toFixed(1)}m on this squad. While it maximizes immediate returns, it reduces your ability to fund price rises or future transfers.
+                    </p>
+                  )}
+                  {activeResult.bench.reduce((acc, p) => acc + p.projected_points, 0) > 10 && (
+                    <p className="m-0 leading-relaxed text-[#02c39a]">
+                      ℹ️ <strong>Strong Bench Security:</strong> Your bench contributes {Math.round(activeResult.bench.reduce((acc, p) => acc + p.projected_points, 0) * 10) / 10} points. This serves as an excellent hedge against unexpected rotations or starting delays.
+                    </p>
+                  )}
+                </div>
               </div>
 
             </div>
@@ -1847,63 +1898,104 @@ function App() {
       {/* How to Use Modal */}
       {showHowToUse && (
         <div className="modal-overlay">
-          <div className="modal-content relative">
+          <div className="modal-content relative" style={{ maxWidth: '600px', width: '90%' }}>
             <button 
-              onClick={() => setShowHowToUse(false)}
+              onClick={() => { setShowHowToUse(false); setModalTab('guide'); }}
               className="absolute top-4 right-4 p-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] text-gray-400 hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-all cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-[#02c39a]" />
-              How to Use FPL Squad Optimizer
-            </h3>
             
-            <div className="flex flex-col gap-4 text-sm text-gray-300">
-              <div className="flex gap-3">
-                <div className="bg-[#02c39a]/10 text-[#02c39a] w-6 h-6 rounded-full flex items-center justify-center font-bold shrink-0 text-xs mt-0.5">1</div>
-                <div>
-                  <h5 className="text-white font-semibold m-0 text-sm">Initialize Data Load</h5>
-                  <p className="m-0 mt-1 text-gray-400 text-xs">
-                    Click the **"Get This Week's XI"** button in the header. This signals the Node.js backend server to query the live Premier League database.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="bg-[#02c39a]/10 text-[#02c39a] w-6 h-6 rounded-full flex items-center justify-center font-bold shrink-0 text-xs mt-0.5">2</div>
-                <div>
-                  <h5 className="text-white font-semibold m-0 text-sm">Points Projection Processing</h5>
-                  <p className="m-0 mt-1 text-gray-400 text-xs">
-                    The app maps current team fixture difficulties (FDR) and combines them with player form and playing availability rates to project individual gameweek scores.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="bg-[#02c39a]/10 text-[#02c39a] w-6 h-6 rounded-full flex items-center justify-center font-bold shrink-0 text-xs mt-0.5">3</div>
-                <div>
-                  <h5 className="text-white font-semibold m-0 text-sm">Combined 15-Man ILP Optimization</h5>
-                  <p className="m-0 mt-1 text-gray-400 text-xs">
-                    Using a single combined Integer Linear Programming (ILP) formulation, the solver selects a 15-man squad within the £100m budget and club constraints, and simultaneously picks the starting 11 to maximize total starting points + 15% of bench points.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="bg-[#02c39a]/10 text-[#02c39a] w-6 h-6 rounded-full flex items-center justify-center font-bold shrink-0 text-xs mt-0.5">4</div>
-                <div>
-                  <h5 className="text-white font-semibold m-0 text-sm">Review Recommended Squad</h5>
-                  <p className="m-0 mt-1 text-gray-400 text-xs">
-                    Inspect the starting 11 on the pitch, review the 4 bench players in the bench panel, and look out for suggested Captain (C) and Vice-Captain (VC) selections.
-                  </p>
-                </div>
-              </div>
+            {/* Modal Tabs */}
+            <div className="flex border-b border-[rgba(255,255,255,0.08)] mb-5" style={{ gap: '1.5rem' }}>
+              <button
+                onClick={() => setModalTab('guide')}
+                className={`pb-2.5 text-sm font-semibold transition-all border-b-2 cursor-pointer ${modalTab === 'guide' ? 'text-[#02c39a] border-[#02c39a]' : 'text-gray-400 border-transparent hover:text-white'}`}
+              >
+                📖 How to Use
+              </button>
+              <button
+                onClick={() => setModalTab('academy')}
+                className={`pb-2.5 text-sm font-semibold transition-all border-b-2 cursor-pointer ${modalTab === 'academy' ? 'text-[#02c39a] border-[#02c39a]' : 'text-gray-400 border-transparent hover:text-white'}`}
+              >
+                🎓 FPL Academy Glossary
+              </button>
             </div>
+
+            {modalTab === 'guide' ? (
+              <div className="flex flex-col gap-4 text-sm text-gray-300">
+                <div className="flex gap-3">
+                  <div className="bg-[#02c39a]/10 text-[#02c39a] w-6 h-6 rounded-full flex items-center justify-center font-bold shrink-0 text-xs mt-0.5">1</div>
+                  <div>
+                    <h5 className="text-white font-semibold m-0 text-sm">Initialize Data Load</h5>
+                    <p className="m-0 mt-1 text-gray-400 text-xs">
+                      Click the **"Get This Week's XI"** button in the header. This signals the Node.js backend server to query the live Premier League database.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="bg-[#02c39a]/10 text-[#02c39a] w-6 h-6 rounded-full flex items-center justify-center font-bold shrink-0 text-xs mt-0.5">2</div>
+                  <div>
+                    <h5 className="text-white font-semibold m-0 text-sm">Points Projection Processing</h5>
+                    <p className="m-0 mt-1 text-gray-400 text-xs">
+                      The app maps current team fixture difficulties (FDR) and combines them with player form and playing availability rates to project individual gameweek scores.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="bg-[#02c39a]/10 text-[#02c39a] w-6 h-6 rounded-full flex items-center justify-center font-bold shrink-0 text-xs mt-0.5">3</div>
+                  <div>
+                    <h5 className="text-white font-semibold m-0 text-sm">Combined 15-Man ILP Optimization</h5>
+                    <p className="m-0 mt-1 text-gray-400 text-xs">
+                      Using a single combined Integer Linear Programming (ILP) formulation, the solver selects a 15-man squad within the £100m budget and club constraints, and simultaneously picks the starting 11 to maximize total starting points + 15% of bench points.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="bg-[#02c39a]/10 text-[#02c39a] w-6 h-6 rounded-full flex items-center justify-center font-bold shrink-0 text-xs mt-0.5">4</div>
+                  <div>
+                    <h5 className="text-white font-semibold m-0 text-sm">Review Recommended Squad</h5>
+                    <p className="m-0 mt-1 text-gray-400 text-xs">
+                      Inspect the starting 11 on the pitch, review the 4 bench players in the bench panel, and look out for suggested Captain (C) and Vice-Captain (VC) selections.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 text-xs text-gray-300 overflow-y-auto custom-scrollbar" style={{ maxHeight: '350px', textAlign: 'left' }}>
+                <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                  <strong className="text-[#02c39a] block mb-1">Expected Points (EP)</strong>
+                  <p className="m-0 text-gray-400">The average number of points we expect this player to score this gameweek. Calculated by combining historical starts, minutes played, status adjustments, and home/away fixture adjustments.</p>
+                </div>
+                <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                  <strong className="text-[#02c39a] block mb-1">Value for Money</strong>
+                  <p className="m-0 text-gray-400">How many expected points you receive for every £1.0m spent. Useful for locating budget-enabling gems that allow upgrades in other positions.</p>
+                </div>
+                <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                  <strong className="text-[#02c39a] block mb-1">Fixture Difficulty (FDR)</strong>
+                  <p className="m-0 text-gray-400">FPL's official index (1-5) representing the difficulty of the opponent. The projection engine scales baseline points by up to +20% for easy matchups (FDR 1) and discounts by up to -20% for difficult ones (FDR 5).</p>
+                </div>
+                <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                  <strong className="text-[#02c39a] block mb-1">Differential</strong>
+                  <p className="m-0 text-gray-400">A player selected by very few managers (typically under 10% ownership). A differential choice can yield rapid rank gains if they return points because your mini-league competitors do not own them.</p>
+                </div>
+                <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                  <strong className="text-[#02c39a] block mb-1">Reliability (Starting Likelihood)</strong>
+                  <p className="m-0 text-gray-400">Our metric combining injury flags and starts ratio. Highly reliable players have very low rotation risk, protecting your starting lineup from unexpected benches.</p>
+                </div>
+                <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                  <strong className="text-[#02c39a] block mb-1">Captain & Vice-Captain</strong>
+                  <p className="m-0 text-gray-400">The player designated as captain scores double points. The vice-captain is a backup whose score is doubled only if your captain fails to play any minutes.</p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-8 pt-4 border-t border-[rgba(255,255,255,0.08)] flex justify-end">
               <button 
-                onClick={() => setShowHowToUse(false)}
+                onClick={() => { setShowHowToUse(false); setModalTab('guide'); }}
                 className="px-5 py-2 bg-[#02c39a] hover:bg-[#02a481] text-black font-semibold text-sm rounded-lg transition-all cursor-pointer"
               >
                 Close Guide
