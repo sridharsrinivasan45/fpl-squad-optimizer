@@ -154,7 +154,7 @@ export function solveSquad(players: Player[], budget: number = 1000): SolverResu
     }
   });
 
-  // Sort starts and bench by position then by projected points descending
+  // Sort starters and full squad by position then by projected points descending
   // GK (1) -> DEF (2) -> MID (3) -> FWD (4)
   const sortByPositionAndPoints = (a: Player, b: Player) => {
     if (a.element_type !== b.element_type) {
@@ -164,8 +164,24 @@ export function solveSquad(players: Player[], budget: number = 1000): SolverResu
   };
 
   starters.sort(sortByPositionAndPoints);
-  bench.sort(sortByPositionAndPoints);
   squad.sort(sortByPositionAndPoints);
+
+  // Enforce auto-sub priority sorting for the bench:
+  // Split bench into goalkeeper and outfielders
+  const benchGK = bench.filter((p) => p.element_type === 1);
+  const benchOutfield = bench.filter((p) => p.element_type !== 1);
+
+  // Sort outfielders by projected points descending (primary),
+  // and by chance_of_playing_next_round descending (secondary tie-breaker)
+  benchOutfield.sort((a, b) => {
+    if (b.projected_points !== a.projected_points) {
+      return b.projected_points - a.projected_points;
+    }
+    return b.chance_of_playing_next_round - a.chance_of_playing_next_round;
+  });
+
+  // Recombine: outfielders first (representing Bench 1, 2, 3), followed by the Goalkeeper (representing Reserve GK)
+  const sortedBench = [...benchOutfield, ...benchGK];
 
   // Calculate totals
   const totalCost = squad.reduce((acc, p) => acc + p.now_cost, 0) / 10;
@@ -216,7 +232,7 @@ export function solveSquad(players: Player[], budget: number = 1000): SolverResu
     feasible: true,
     squad,
     starters,
-    bench,
+    bench: sortedBench,
     captain,
     viceCaptain,
     totalCost,

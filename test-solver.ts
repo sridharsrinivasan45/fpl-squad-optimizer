@@ -359,9 +359,26 @@ Object.entries(teamCounts).forEach(([teamId, count]) => {
 });
 
 // Assertions
-if (result.squad.length === 15 && result.starters.length === 11 && result.bench.length === 4) {
-  console.log('\nSUCCESS: Combined 15-man ILP Solver verified successfully!');
+const isGKLast = result.bench[3].element_type === 1;
+const isOutfieldSortedByPoints = 
+  (result.bench[0].projected_points > result.bench[1].projected_points) || 
+  (result.bench[0].projected_points === result.bench[1].projected_points && result.bench[0].chance_of_playing_next_round >= result.bench[1].chance_of_playing_next_round);
+const isOutfieldSortedByPoints2 = 
+  (result.bench[1].projected_points > result.bench[2].projected_points) || 
+  (result.bench[1].projected_points === result.bench[2].projected_points && result.bench[1].chance_of_playing_next_round >= result.bench[2].chance_of_playing_next_round);
+
+if (
+  result.squad.length === 15 && 
+  result.starters.length === 11 && 
+  result.bench.length === 4 &&
+  isGKLast &&
+  isOutfieldSortedByPoints &&
+  isOutfieldSortedByPoints2
+) {
+  console.log('\nSUCCESS: Combined 15-man ILP Solver and Bench Auto-Sub Priority verified successfully!');
 } else {
-  console.error('\nFAILURE: Invalid squad counts!');
+  console.error('\nFAILURE: Invalid squad counts or incorrect bench priority sorting!');
+  if (!isGKLast) console.error('Goalkeeper is not last on the bench.');
+  if (!isOutfieldSortedByPoints || !isOutfieldSortedByPoints2) console.error('Outfield bench players are not sorted correctly by points and availability.');
   process.exit(1);
 }

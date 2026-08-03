@@ -1,13 +1,24 @@
-# FPL Squad Optimizer Task Checklist (Combined 15-Man Squad)
+# FPL Decision Dashboard Task Checklist (My Team Mode)
 
-- `[x]` Stage 1: Implement Combined ILP Solver
-  - `[x]` Rebuild `src/utils/fplSolver.ts` with single combined ILP (squad variables, starter variables, linking constraints, 0.15 bench objective weights)
-  - `[x]` Update `test-solver.ts` with 20 mock players to verify the new mathematical formulation
-  - `[x]` Execute the test script to verify constraints are satisfied
-- `[x]` Stage 2: Update UI for 15-Player Display
-  - `[x]` Rebuild `src/App.tsx` layout to show starting XI on the pitch, and the 4 bench players below the pitch
-  - `[x]` Group player breakdown table into Starters and Bench sections
-  - `[x]` Update squad summary card to show the cost of all 15 players, and starting XI points vs squad points
-- `[x]` Stage 3: Verification & Launch
-  - `[x]` Compile/build checking with `npm run build`
-  - `[x]` Launch and verify live pre-season optimization squad selections, budget utilization, and bench players' availability rates
+- `[x]` Stage 1: Implement Point-First Bench Auto-Sub Sorting
+  - `[x]` Update `src/utils/fplSolver.ts` sorting of outfield bench players (points descending, availability descending) and append the goalkeeper last
+  - `[x]` Update `test-solver.ts` to verify auto-sub sorting correctness
+  - `[x]` Run `test-solver` test script and ensure assertions pass
+- `[x]` Stage 2: Update Styles in `src/index.css`
+  - `[x]` Add styles for mode toggle container and tabs in header
+  - `[x]` Add styles for search autocomplete input and scrollable search results
+  - `[x]` Add styles for live validation progress bars, metrics grid, and club counts
+  - `[x]` Add styles for bench priority badges (Bench 1, 2, 3, Reserve GK)
+- `[x]` Stage 3: Implement Autocomplete Selector & Draft Mechanics
+  - `[x]` Add toggle states (`mode`, `myTeamSquad`, `myTeamResult`, `searchQuery`) in `src/App.tsx`
+  - `[x]` Implement autocomplete player search filter in drafting panel (requires query length >= 2)
+  - `[x]` Add drafting buttons with validation triggers (duplicates, squad size, position quotas, club limits)
+- `[x]` Stage 4: Implement Live Metrics & Lineup Optimization
+  - `[x]` Render live validation indicators (budget progress bar, position counters, club counts)
+  - `[x]` Add "Optimize My Team" action button (enabled when squad is fully valid)
+  - `[x]` Render the Visual Pitch and Bench row using results from `myTeamResult`
+  - `[x]` Display projected starting points, formation, captain/vice-captain, and bench points in the summary cards
+- `[x]` Stage 5: Verification & Launch
+  - `[x]` Check build compilation with `npm run build`
+  - `[x]` Run manual verify of mode switching, autocomplete lists, budget limits, and optimized visual starting lineups
+  - `[x]` Stage and commit changes to local Git repo
