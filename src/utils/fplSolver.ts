@@ -22,7 +22,17 @@ export interface SolverResult {
   }[];
 }
 
-export function solveSquad(players: Player[], budget: number = 1000): SolverResult {
+export interface SolverInterventions {
+  forcedPlayerIds?: number[];
+  excludedPlayerIds?: number[];
+  customBudgetLimit?: number;
+}
+
+export function solveSquad(
+  players: Player[],
+  budget: number = 1000,
+  interventions?: SolverInterventions
+): SolverResult {
   // We only consider players with positive or zero projected points.
   // Filter out any players with invalid numbers or missing info.
   const validPlayers = players.filter(
@@ -33,11 +43,15 @@ export function solveSquad(players: Player[], budget: number = 1000): SolverResu
       !isNaN(p.projected_points)
   );
 
+  const finalBudget = interventions?.customBudgetLimit !== undefined 
+    ? interventions.customBudgetLimit 
+    : budget;
+
   const model: any = {
     optimize: 'points',
     opType: 'max',
     constraints: {
-      cost: { max: budget }, // Total cost of squad <= budget limit
+      cost: { max: finalBudget }, // Total cost of squad <= budget limit
       squad_size: { equal: 15 },
       gk_sq: { equal: 2 },
       def_sq: { equal: 5 },
@@ -65,7 +79,13 @@ export function solveSquad(players: Player[], budget: number = 1000): SolverResu
     const startVar = `start_${p.id}`;// Starter variable (y_i)
     
     // Add individual player binary limits (s_i <= 1, start_i <= 1)
-    model.constraints[sVar] = { max: 1 };
+    let sConstraint = { max: 1 };
+    if (interventions?.forcedPlayerIds?.includes(p.id)) {
+      sConstraint = { equal: 1 } as any;
+    } else if (interventions?.excludedPlayerIds?.includes(p.id)) {
+      sConstraint = { equal: 0 } as any;
+    }
+    model.constraints[sVar] = sConstraint;
     model.constraints[startVar] = { max: 1 };
     
     // Linking constraint: start_i - s_i <= 0 (y_i <= x_i)

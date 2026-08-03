@@ -18,6 +18,8 @@ import type { Player } from './utils/pointsProjection';
 import { solveSquad } from './utils/fplSolver';
 import type { SolverResult } from './utils/fplSolver';
 import { calculatePlayerRatings } from './utils/recommendationEngine';
+import { generateOptimizationExplanation } from './utils/explainabilityEngine';
+import type { OptimizationExplanation } from './utils/explainabilityEngine';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(false);
@@ -40,6 +42,10 @@ function App() {
     }
   });
   const [myTeamResult, setMyTeamResult] = useState<SolverResult | null>(null);
+  
+  // Explanation states
+  const [optExplanation, setOptExplanation] = useState<OptimizationExplanation | null>(null);
+  const [myTeamExplanation, setMyTeamExplanation] = useState<OptimizationExplanation | null>(null);
 
   // Search autocomplete states
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -136,6 +142,10 @@ function App() {
       }
 
       setResult(solverResult);
+      // Run counterfactual optimizations to generate selection/exclusion explanations
+      setLoadingMessage('Running counterfactual optimization runs to verify opportunity costs...');
+      const explanation = generateOptimizationExplanation(players, solverResult, isPreSeason);
+      setOptExplanation(explanation);
     } catch (err: any) {
       if (err.message && !err.message.includes('fetch failed')) {
         setError({
@@ -161,6 +171,10 @@ function App() {
         throw new Error('Could not optimize Starting XI. Please make sure the selected 15 players satisfy positions: 2 GK, 5 DEF, 5 MID, 3 FWD.');
       }
       setMyTeamResult(solverResult);
+      
+      setLoadingMessage('Running counterfactual optimizations for My Team...');
+      const explanation = generateOptimizationExplanation(allPlayers, solverResult, isPreSeason);
+      setMyTeamExplanation(explanation);
     } catch (err: any) {
       setError({
         message: err.message || 'Optimization failed.',
@@ -197,8 +211,10 @@ function App() {
     setMyTeamResult(null);
   };
 
-  // Resolve active result
+  // Resolve active result and explainability summaries
   const activeResult = mode === 'optimal' ? result : myTeamResult;
+  const activeExplanation = mode === 'optimal' ? optExplanation : myTeamExplanation;
+  const [activeExpPlayerId, setActiveExpPlayerId] = useState<number | null>(null);
 
   // Group starters by position
   const gks = activeResult?.starters.filter(p => p.element_type === 1) || [];
@@ -1134,6 +1150,92 @@ function App() {
                   </table>
                 </div>
               </div>
+
+              {/* Optimization Explainability Panel */}
+              {activeExplanation && (
+                <div className="glass-panel text-left" style={{ marginTop: '1.5rem' }}>
+                  <h4 className="text-white font-bold text-sm mb-4 tracking-wider">OPTIMIZATION DECISION ANALYSIS</h4>
+                  
+                  {/* Global Summary */}
+                  <div className="text-xs text-gray-300 leading-relaxed mb-6 p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                    <strong className="text-[#02c39a] text-[10px] uppercase tracking-wider block mb-1">Mathematical Rationale</strong>
+                    {activeExplanation.globalOptimalitySummary}
+                  </div>
+
+                  {/* Budget Sensitivity */}
+                  <div className="mb-6">
+                    <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-2">Budget Capital Sensitivity</h5>
+                    <div className="p-3 bg-[rgba(235,77,75,0.02)] border border-[rgba(235,77,75,0.1)] rounded-xl text-xs text-gray-300">
+                      <strong>£1.0m Budget Constraint Impact:</strong> {activeExplanation.budgetSensitivity.explanation}
+                    </div>
+                  </div>
+
+                  {/* Selection Explanations */}
+                  <div className="mb-6">
+                    <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-2">Selected Starters Opportunity Cost</h5>
+                    <p className="text-[10px] text-gray-400 mb-3">Click on any selected starter below to see their exact mathematical opportunity cost and optimal replacement if they were omitted from the squad.</p>
+                    
+                    <div className="flex flex-col gap-2">
+                      {activeExplanation.selections.map((sel) => {
+                        const player = activeResult.starters.find(p => p.id === sel.playerId);
+                        if (!player) return null;
+                        const isExpanded = activeExpPlayerId === sel.playerId;
+
+                        return (
+                          <div 
+                            key={sel.playerId}
+                            className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${isExpanded ? 'bg-[rgba(2,195,154,0.04)] border-[rgba(2,195,154,0.25)]' : 'bg-[rgba(255,255,255,0.01)] border-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.03)]'}`}
+                            onClick={() => setActiveExpPlayerId(isExpanded ? null : sel.playerId)}
+                          >
+                            <div className="flex justify-between items-center font-semibold">
+                              <span className="text-white">{sel.web_name}</span>
+                              <span className="text-[#02c39a] font-mono font-bold">-{sel.opportunityCost.toFixed(1)} pts cost</span>
+                            </div>
+                            
+                            {isExpanded && (
+                              <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)] flex flex-col gap-2">
+                                <div className="text-[11px] text-gray-300">
+                                  <strong>Why Chosen:</strong>
+                                  <ul className="list-disc pl-4 mt-1 flex flex-col gap-1 text-[10px] text-gray-400">
+                                    {sel.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                                  </ul>
+                                </div>
+                                {sel.replacement && (
+                                  <div className="text-[11px] text-gray-300 bg-[rgba(255,255,255,0.02)] p-2 rounded-lg border border-[rgba(255,255,255,0.04)]">
+                                    <strong>Closest Alternative:</strong> {sel.replacement.web_name}
+                                    <div className="text-[10px] text-gray-400 mt-1">
+                                      {sel.replacement.reason}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Notable Exclusions */}
+                  <div>
+                    <h5 className="text-[#e74c3c] font-bold text-xs uppercase tracking-wider mb-2">Forced Premium Exclusions Penalty</h5>
+                    <div className="flex flex-col gap-2">
+                      {activeExplanation.exclusions.map((excl) => (
+                        <div key={excl.playerId} className="p-2.5 rounded-lg bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] text-xs">
+                          <div className="flex justify-between items-center font-semibold mb-1">
+                            <span className="text-white">{excl.web_name} (£{(excl.cost / 10).toFixed(1)}m)</span>
+                            <span className="text-[#e74c3c] font-mono">-{excl.pointsLoss.toFixed(1)} pts penalty</span>
+                          </div>
+                          <ul className="list-disc pl-4 text-[10px] text-gray-400 flex flex-col gap-1 mt-1">
+                            {excl.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+              )}
 
             </div>
 
