@@ -20,6 +20,7 @@ import type { SolverResult } from './utils/fplSolver';
 import { calculatePlayerRatings } from './utils/recommendationEngine';
 import { generateOptimizationExplanation } from './utils/explainabilityEngine';
 import type { OptimizationExplanation } from './utils/explainabilityEngine';
+import { comparePlayers, simulateDecision } from './utils/decisionSimulator';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(false);
@@ -31,7 +32,7 @@ function App() {
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
 
   // FPL Decision Dashboard state additions
-  const [mode, setMode] = useState<'optimal' | 'my-team' | 'scouting'>('optimal');
+  const [mode, setMode] = useState<'optimal' | 'my-team' | 'scouting' | 'comparison' | 'simulation'>('optimal');
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [myTeamSquad, setMyTeamSquad] = useState<Player[]>(() => {
     try {
@@ -50,6 +51,20 @@ function App() {
   // Search autocomplete states
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [positionFilter, setPositionFilter] = useState<'all' | 'gk' | 'def' | 'mid' | 'fwd'>('all');
+
+  // Comparison states
+  const [compPlayerA, setCompPlayerA] = useState<Player | null>(null);
+  const [compPlayerB, setCompPlayerB] = useState<Player | null>(null);
+  const [compSearchQueryA, setCompSearchQueryA] = useState<string>('');
+  const [compSearchQueryB, setCompSearchQueryB] = useState<string>('');
+
+  // Simulation states
+  const [simForcedPlayerIds, setSimForcedPlayerIds] = useState<number[]>([]);
+  const [simExcludedPlayerIds, setSimExcludedPlayerIds] = useState<number[]>([]);
+  const [simCustomBudgetLimit, setSimCustomBudgetLimit] = useState<number>(100.0);
+  const [simRiskPreference, setSimRiskPreference] = useState<'safe' | 'balanced' | 'aggressive'>('balanced');
+  const [simSearchForcedQuery, setSimSearchForcedQuery] = useState<string>('');
+  const [simSearchExcludedQuery, setSimSearchExcludedQuery] = useState<string>('');
 
   // Scouting states
   const [scoutingPlayer, setScoutingPlayer] = useState<Player | null>(null);
@@ -322,6 +337,24 @@ function App() {
                 className={`mode-toggle-btn ${mode === 'scouting' ? 'active' : ''}`}
               >
                 Scouting
+              </button>
+              <button
+                onClick={() => {
+                  setMode('comparison');
+                  setError(null);
+                }}
+                className={`mode-toggle-btn ${mode === 'comparison' ? 'active' : ''}`}
+              >
+                Comparison
+              </button>
+              <button
+                onClick={() => {
+                  setMode('simulation');
+                  setError(null);
+                }}
+                className={`mode-toggle-btn ${mode === 'simulation' ? 'active' : ''}`}
+              >
+                Simulator
               </button>
             </div>
             <button 
@@ -869,6 +902,573 @@ function App() {
                   <h4 className="text-white font-bold text-sm m-0">No Player Selected</h4>
                   <p className="text-xs text-gray-400 max-w-xs mx-auto mt-2">
                     Search and select a player on the left panel to run deep-dive fantasy analytics, star recommendations, and coaching explanations.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {mode === 'comparison' && !loading && !error && (
+          <div className="dashboard-grid">
+            {/* Left Column: Player Inputs */}
+            <div className="grid-left-col">
+              <div className="glass-panel">
+                <h4 className="text-white font-bold text-sm mb-4 tracking-wider text-left">SELECT PLAYERS TO COMPARE</h4>
+                
+                {/* Search Player A */}
+                <div className="mb-6">
+                  <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-2 text-left">Player A</label>
+                  {compPlayerA ? (
+                    <div className="p-3 bg-[rgba(2,195,154,0.05)] border border-[rgba(2,195,154,0.15)] rounded-xl flex justify-between items-center text-xs">
+                      <div className="text-left">
+                        <strong className="text-white text-sm">{compPlayerA.web_name}</strong>
+                        <span className="text-gray-400 block text-[10px]">{compPlayerA.team_name} • £{(compPlayerA.now_cost/10).toFixed(1)}m</span>
+                      </div>
+                      <button 
+                        onClick={() => { setCompPlayerA(null); setCompSearchQueryA(''); }}
+                        className="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[rgba(255,255,255,0.05)] text-[10px] font-bold"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="search-picker-card">
+                      <input
+                        type="text"
+                        placeholder="Type player name to search..."
+                        className="search-input"
+                        value={compSearchQueryA}
+                        onChange={(e) => setCompSearchQueryA(e.target.value)}
+                      />
+                      {compSearchQueryA.length >= 2 && (
+                        <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '180px' }}>
+                          {allPlayers
+                            .filter(p => p.web_name.toLowerCase().includes(compSearchQueryA.toLowerCase()))
+                            .slice(0, 5)
+                            .map(p => (
+                              <div 
+                                key={p.id} 
+                                className="dropdown-row cursor-pointer text-left hover:bg-[rgba(255,255,255,0.03)]"
+                                onClick={() => { setCompPlayerA(p); setCompSearchQueryA(''); }}
+                              >
+                                <div>
+                                  <span className="player-row-name block">{p.web_name}</span>
+                                  <span className="player-row-sub block">{p.team_name} | £{(p.now_cost/10).toFixed(1)}m</span>
+                                </div>
+                                <span className="text-xs font-bold text-[#02c39a]">{p.projected_points} pts</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Search Player B */}
+                <div className="mb-6">
+                  <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-2 text-left">Player B</label>
+                  {compPlayerB ? (
+                    <div className="p-3 bg-[rgba(2,195,154,0.05)] border border-[rgba(2,195,154,0.15)] rounded-xl flex justify-between items-center text-xs">
+                      <div className="text-left">
+                        <strong className="text-white text-sm">{compPlayerB.web_name}</strong>
+                        <span className="text-gray-400 block text-[10px]">{compPlayerB.team_name} • £{(compPlayerB.now_cost/10).toFixed(1)}m</span>
+                      </div>
+                      <button 
+                        onClick={() => { setCompPlayerB(null); setCompSearchQueryB(''); }}
+                        className="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[rgba(255,255,255,0.05)] text-[10px] font-bold"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="search-picker-card">
+                      <input
+                        type="text"
+                        placeholder="Type player name to search..."
+                        className="search-input"
+                        value={compSearchQueryB}
+                        onChange={(e) => setCompSearchQueryB(e.target.value)}
+                      />
+                      {compSearchQueryB.length >= 2 && (
+                        <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '180px' }}>
+                          {allPlayers
+                            .filter(p => p.web_name.toLowerCase().includes(compSearchQueryB.toLowerCase()))
+                            .slice(0, 5)
+                            .map(p => (
+                              <div 
+                                key={p.id} 
+                                className="dropdown-row cursor-pointer text-left hover:bg-[rgba(255,255,255,0.03)]"
+                                onClick={() => { setCompPlayerB(p); setCompSearchQueryB(''); }}
+                              >
+                                <div>
+                                  <span className="player-row-name block">{p.web_name}</span>
+                                  <span className="player-row-sub block">{p.team_name} | £{(p.now_cost/10).toFixed(1)}m</span>
+                                </div>
+                                <span className="text-xs font-bold text-[#02c39a]">{p.projected_points} pts</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Popular comparison templates */}
+                <div className="border-t border-[rgba(255,255,255,0.08)] pt-4 mt-6">
+                  <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-3 text-left">POPULAR COMPARISONS</h5>
+                  <div className="flex flex-col gap-2">
+                    {[
+                      { nameA: 'Haaland', nameB: 'Salah' },
+                      { nameA: 'Saka', nameB: 'Palmer' },
+                      { nameA: 'Gabriel', nameB: 'Gvardiol' }
+                    ].map((comp, idx) => {
+                      const pA = allPlayers.find(p => p.web_name.toLowerCase().includes(comp.nameA.toLowerCase()));
+                      const pB = allPlayers.find(p => p.web_name.toLowerCase().includes(comp.nameB.toLowerCase()));
+                      if (!pA || !pB) return null;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => { setCompPlayerA(pA); setCompPlayerB(pB); }}
+                          className="w-full text-left p-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.05)] text-xs text-gray-300 transition-all"
+                        >
+                          Compare <strong>{pA.web_name}</strong> vs <strong>{pB.web_name}</strong>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Right Column: Comparison Report */}
+            <div className="grid-right-col">
+              {compPlayerA && compPlayerB ? (() => {
+                const report = comparePlayers(compPlayerA, compPlayerB, isPreSeason);
+                return (
+                  <div className="flex flex-col gap-6">
+                    
+                    {/* Verdict Card */}
+                    <div className="glass-panel text-left">
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold block mb-1">Comparison Decision Verdict</span>
+                          <h2 className="text-xl font-bold text-white m-0 flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-xs bg-[#02c39a]/10 text-[#02c39a]">🟢</span>
+                            {report.verdictLabel}
+                          </h2>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-300 leading-relaxed font-semibold bg-[rgba(2,195,154,0.04)] border border-[rgba(2,195,154,0.15)] rounded-xl p-4 m-0">
+                        {report.verdictExplanation}
+                      </p>
+                    </div>
+
+                    {/* Technical Metric comparison grid */}
+                    <div className="glass-panel text-left">
+                      <h4 className="text-white font-bold text-sm mb-4 tracking-wider">SIDE-BY-SIDE METRICS</h4>
+                      <div className="custom-table-container">
+                        <table className="custom-table">
+                          <thead>
+                            <tr>
+                              <th>Metric</th>
+                              <th className="text-center font-bold text-[#02c39a]">{compPlayerA.web_name}</th>
+                              <th className="text-center font-bold text-[#3a86c8]">{compPlayerB.web_name}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td className="text-gray-400 font-semibold">Expected Points</td>
+                              <td className="text-center font-mono font-bold text-white">{compPlayerA.projected_points} pts</td>
+                              <td className="text-center font-mono font-bold text-white">{compPlayerB.projected_points} pts</td>
+                            </tr>
+                            <tr>
+                              <td className="text-gray-400 font-semibold">Cost</td>
+                              <td className="text-center font-mono text-white">£{(compPlayerA.now_cost/10).toFixed(1)}m</td>
+                              <td className="text-center font-mono text-white">£{(compPlayerB.now_cost/10).toFixed(1)}m</td>
+                            </tr>
+                            <tr>
+                              <td className="text-gray-400 font-semibold">Ownership</td>
+                              <td className="text-center font-mono text-white">{compPlayerA.selected_by_percent}%</td>
+                              <td className="text-center font-mono text-white">{compPlayerB.selected_by_percent}%</td>
+                            </tr>
+                            <tr>
+                              <td className="text-gray-400 font-semibold">Overall Fantasy Rating</td>
+                              <td className="text-center font-mono font-bold text-[#02c39a]">{report.ratingsA.ratings.overallRating.toFixed(1)} / 10</td>
+                              <td className="text-center font-mono font-bold text-[#3a86c8]">{report.ratingsB.ratings.overallRating.toFixed(1)} / 10</td>
+                            </tr>
+                            <tr>
+                              <td className="text-gray-400">Value for Money Rating</td>
+                              <td className="text-center font-mono">{report.ratingsA.ratings.valueRating.toFixed(1)}</td>
+                              <td className="text-center font-mono">{report.ratingsB.ratings.valueRating.toFixed(1)}</td>
+                            </tr>
+                            <tr>
+                              <td className="text-gray-400">Fixture Difficulty Rating</td>
+                              <td className="text-center font-mono">{report.ratingsA.ratings.fixtureRating.toFixed(1)}</td>
+                              <td className="text-center font-mono">{report.ratingsB.ratings.fixtureRating.toFixed(1)}</td>
+                            </tr>
+                            <tr>
+                              <td className="text-gray-400">Starting Reliability Rating</td>
+                              <td className="text-center font-mono">{report.ratingsA.ratings.reliabilityRating.toFixed(1)}</td>
+                              <td className="text-center font-mono">{report.ratingsB.ratings.reliabilityRating.toFixed(1)}</td>
+                            </tr>
+                            <tr>
+                              <td className="text-gray-400">Risk Safety Rating</td>
+                              <td className="text-center font-mono">{report.ratingsA.ratings.riskRating.toFixed(1)}</td>
+                              <td className="text-center font-mono">{report.ratingsB.ratings.riskRating.toFixed(1)}</td>
+                            </tr>
+                            <tr>
+                              <td className="text-gray-400">Differential Rating</td>
+                              <td className="text-center font-mono">{report.ratingsA.ratings.differentialRating.toFixed(1)}</td>
+                              <td className="text-center font-mono">{report.ratingsB.ratings.differentialRating.toFixed(1)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Educational Answers / Head-to-Head */}
+                    <div className="glass-panel text-left">
+                      <h4 className="text-white font-bold text-sm mb-4 tracking-wider">HEAD-TO-HEAD DECISION QUESTIONS</h4>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex justify-between items-center text-xs p-3 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
+                          <span className="text-gray-400 font-medium">Which player is safer?</span>
+                          <strong className="text-white">{report.saferPlayer}</strong>
+                        </div>
+                        <div className="flex justify-between items-center text-xs p-3 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
+                          <span className="text-gray-400 font-medium">Which player has a higher points ceiling?</span>
+                          <strong className="text-white">{report.higherCeilingPlayer}</strong>
+                        </div>
+                        <div className="flex justify-between items-center text-xs p-3 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
+                          <span className="text-gray-400 font-medium">Which player represents better value?</span>
+                          <strong className="text-white">{report.betterValuePlayer}</strong>
+                        </div>
+                        <div className="flex justify-between items-center text-xs p-3 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
+                          <span className="text-gray-400 font-medium">Which player is better for beginners?</span>
+                          <strong className="text-white">{report.beginnerFriendlyPlayer}</strong>
+                        </div>
+                        <div className="flex justify-between items-center text-xs p-3 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
+                          <span className="text-gray-400 font-medium">Which player is a better differential choice?</span>
+                          <strong className="text-white">{report.differentialPlayer}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Strengths and Weaknesses side-by-side */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="glass-panel text-left">
+                        <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-4">{compPlayerA.web_name} Key Details</h4>
+                        <div className="mb-4">
+                          <strong className="text-[#02c39a] text-[10px] uppercase block mb-1">Strengths</strong>
+                          <ul className="pl-4 m-0 text-xs text-gray-300 flex flex-col gap-1.5 list-disc">
+                            {report.ratingsA.reasonsToBuy.map(s => <li key={s}>{s}</li>)}
+                          </ul>
+                        </div>
+                        <div>
+                          <strong className="text-[#f7b731] text-[10px] uppercase block mb-1">Caution Areas</strong>
+                          <ul className="pl-4 m-0 text-xs text-gray-300 flex flex-col gap-1.5 list-disc">
+                            {report.ratingsA.reasonsForCaution.map(s => <li key={s}>{s}</li>)}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="glass-panel text-left">
+                        <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-4">{compPlayerB.web_name} Key Details</h4>
+                        <div className="mb-4">
+                          <strong className="text-[#02c39a] text-[10px] uppercase block mb-1">Strengths</strong>
+                          <ul className="pl-4 m-0 text-xs text-gray-300 flex flex-col gap-1.5 list-disc">
+                            {report.ratingsB.reasonsToBuy.map(s => <li key={s}>{s}</li>)}
+                          </ul>
+                        </div>
+                        <div>
+                          <strong className="text-[#f7b731] text-[10px] uppercase block mb-1">Caution Areas</strong>
+                          <ul className="pl-4 m-0 text-xs text-gray-300 flex flex-col gap-1.5 list-disc">
+                            {report.ratingsB.reasonsForCaution.map(s => <li key={s}>{s}</li>)}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })() : (
+                <div className="glass-panel text-center py-24">
+                  <TrendingUp className="w-12 h-12 text-gray-500 mx-auto mb-3 opacity-60" />
+                  <h4 className="text-white font-bold text-sm m-0">Select Two Players to Compare</h4>
+                  <p className="text-xs text-gray-400 max-w-xs mx-auto mt-2">
+                    Search and pick two players on the left panel to trigger side-by-side rating comparisons, head-to-head decision results, and recommendations.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {mode === 'simulation' && !loading && !error && (
+          <div className="dashboard-grid">
+            {/* Left Column: Simulator Controls */}
+            <div className="grid-left-col">
+              <div className="glass-panel">
+                <h4 className="text-white font-bold text-sm mb-4 tracking-wider text-left">SIMULATOR CONTROLS</h4>
+                
+                {/* Risk Preference Toggle */}
+                <div className="mb-6 text-left">
+                  <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-2">Risk Preference</label>
+                  <div className="flex gap-2">
+                    {[
+                      { key: 'safe', label: '🛡️ Safe', desc: 'Exponential starting penalty' },
+                      { key: 'balanced', label: '⚖️ Balanced', desc: 'Baseline expected points' },
+                      { key: 'aggressive', label: '🔥 Aggressive', desc: 'Square root starting boost' }
+                    ].map((pref) => (
+                      <button
+                        key={pref.key}
+                        onClick={() => setSimRiskPreference(pref.key as any)}
+                        className={`px-3 py-2 rounded-lg border text-xs font-semibold flex-1 transition-all ${simRiskPreference === pref.key ? 'bg-[rgba(2,195,154,0.1)] border-[#02c39a] text-white' : 'bg-[rgba(255,255,255,0.01)] border-[rgba(255,255,255,0.04)] text-gray-400 hover:text-white'}`}
+                        title={pref.desc}
+                      >
+                        {pref.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Budget Limit Override */}
+                <div className="mb-6 text-left">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Available Squad Budget</label>
+                    <span className="text-xs font-bold text-white">£{simCustomBudgetLimit.toFixed(1)}m</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="95.0"
+                    max="105.0"
+                    step="0.2"
+                    value={simCustomBudgetLimit}
+                    onChange={(e) => setSimCustomBudgetLimit(parseFloat(e.target.value))}
+                    className="w-full h-1.5 rounded-lg appearance-none bg-[rgba(255,255,255,0.08)] cursor-pointer accent-[#02c39a]"
+                  />
+                  <div className="flex justify-between text-[9px] text-gray-500 mt-1">
+                    <span>£95.0m</span>
+                    <span>£100.0m (Standard)</span>
+                    <span>£105.0m</span>
+                  </div>
+                </div>
+
+                {/* Force Player selection picker */}
+                <div className="mb-6 text-left">
+                  <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-2">Force Player (Lock in Squad)</label>
+                  <div className="search-picker-card">
+                    <input
+                      type="text"
+                      placeholder="Type name to force select (locks in squad)..."
+                      className="search-input"
+                      value={simSearchForcedQuery}
+                      onChange={(e) => setSimSearchForcedQuery(e.target.value)}
+                    />
+                    {simSearchForcedQuery.length >= 2 && (
+                      <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '180px' }}>
+                        {allPlayers
+                          .filter(p => p.web_name.toLowerCase().includes(simSearchForcedQuery.toLowerCase()) && !simForcedPlayerIds.includes(p.id))
+                          .slice(0, 5)
+                          .map(p => (
+                            <div 
+                              key={p.id} 
+                              className="dropdown-row cursor-pointer text-left hover:bg-[rgba(255,255,255,0.03)]"
+                              onClick={() => { 
+                                setSimForcedPlayerIds([...simForcedPlayerIds, p.id]); 
+                                setSimSearchForcedQuery(''); 
+                              }}
+                            >
+                              <span>{p.web_name} ({p.team_short_name})</span>
+                              <span className="text-xs text-[#02c39a] font-bold">Lock</span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                  {simForcedPlayerIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {simForcedPlayerIds.map(id => {
+                        const p = allPlayers.find(x => x.id === id);
+                        return (
+                          <span key={id} className="px-2 py-1 rounded bg-[rgba(2,195,154,0.08)] border border-[rgba(2,195,154,0.2)] text-[10px] text-white flex items-center gap-1.5 font-bold">
+                            🔒 {p?.web_name}
+                            <button onClick={() => setSimForcedPlayerIds(simForcedPlayerIds.filter(x => x !== id))} className="text-[#e74c3c] font-bold">×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Exclude Player selection picker */}
+                <div className="mb-6 text-left">
+                  <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-2">Exclude Player (Lock Out of Squad)</label>
+                  <div className="search-picker-card">
+                    <input
+                      type="text"
+                      placeholder="Type name to exclude (locks out of squad)..."
+                      className="search-input"
+                      value={simSearchExcludedQuery}
+                      onChange={(e) => setSimSearchExcludedQuery(e.target.value)}
+                    />
+                    {simSearchExcludedQuery.length >= 2 && (
+                      <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '180px' }}>
+                        {allPlayers
+                          .filter(p => p.web_name.toLowerCase().includes(simSearchExcludedQuery.toLowerCase()) && !simExcludedPlayerIds.includes(p.id))
+                          .slice(0, 5)
+                          .map(p => (
+                            <div 
+                              key={p.id} 
+                              className="dropdown-row cursor-pointer text-left hover:bg-[rgba(255,255,255,0.03)]"
+                              onClick={() => { 
+                                setSimExcludedPlayerIds([...simExcludedPlayerIds, p.id]); 
+                                setSimSearchExcludedQuery(''); 
+                              }}
+                            >
+                              <span>{p.web_name} ({p.team_short_name})</span>
+                              <span className="text-xs text-[#e74c3c] font-bold">Exclude</span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                  {simExcludedPlayerIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {simExcludedPlayerIds.map(id => {
+                        const p = allPlayers.find(x => x.id === id);
+                        return (
+                          <span key={id} className="px-2 py-1 rounded bg-[rgba(235,77,75,0.08)] border border-[rgba(235,77,75,0.2)] text-[10px] text-white flex items-center gap-1.5 font-bold">
+                            🚫 {p?.web_name}
+                            <button onClick={() => setSimExcludedPlayerIds(simExcludedPlayerIds.filter(x => x !== id))} className="text-[#e74c3c] font-bold">×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+
+            {/* Right Column: Re-optimized Simulation Output */}
+            <div className="grid-right-col">
+              {result ? (() => {
+                // Compile simulator calculations
+                const simPlayers = allPlayers.map(p => {
+                  let prob = (p.chance_of_playing_next_round ?? 100) / 100;
+                  if (simRiskPreference === 'safe') {
+                    prob = Math.pow(prob, 2);
+                  } else if (simRiskPreference === 'aggressive') {
+                    prob = Math.sqrt(prob);
+                  }
+                  const baseProj = p.breakdown?.baseProjection || p.projected_points;
+                  const fdrAdj = p.breakdown?.fixtureAdjustment || 0;
+                  const homeAdj = p.breakdown?.homeAdvantage || 0;
+                  const expectedPoints = Math.round(baseProj * (fdrAdj / 100 + 1) * (homeAdj / 100 + 1) * prob * 100) / 100;
+                  return {
+                    ...p,
+                    projected_points: expectedPoints,
+                    chance_of_playing_next_round: Math.round(prob * 100)
+                  };
+                });
+
+                const simRes = simulateDecision(simPlayers, result, {
+                  forcedPlayerIds: simForcedPlayerIds,
+                  excludedPlayerIds: simExcludedPlayerIds,
+                  customBudgetLimit: Math.round(simCustomBudgetLimit * 10)
+                });
+
+                const pillColorClass = simRes.verdictColor === 'green' ? 'bg-[#02c39a]/10 text-[#02c39a]' : simRes.verdictColor === 'yellow' ? 'bg-[#f7b731]/10 text-[#f7b731]' : 'bg-[#e74c3c]/10 text-[#e74c3c]';
+
+                return (
+                  <div className="flex flex-col gap-6">
+                    
+                    {/* Executive Impact Summary */}
+                    <div className="glass-panel text-left">
+                      <div className="flex justify-between items-start gap-4 mb-4">
+                        <div>
+                          <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold block mb-1">Decision Simulator Result</span>
+                          <h2 className="text-xl font-bold text-white m-0 flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-xs ${pillColorClass}`}>
+                              {simRes.verdictLabel}
+                            </span>
+                          </h2>
+                        </div>
+                      </div>
+                      
+                      {simRes.feasible ? (
+                        <>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                              <span className="text-[10px] text-gray-400 block uppercase">Points Impact</span>
+                              <span className={`text-lg font-bold ${simRes.pointsDelta >= 0 ? 'text-[#02c39a]' : 'text-[#e74c3c]'}`}>
+                                {simRes.pointsDelta >= 0 ? '+' : ''}{simRes.pointsDelta.toFixed(1)} pts
+                              </span>
+                            </div>
+                            <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                              <span className="text-[10px] text-gray-400 block uppercase">Simulated Expected</span>
+                              <span className="text-lg font-bold text-white">{simRes.simulatedPoints} pts</span>
+                            </div>
+                            <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                              <span className="text-[10px] text-gray-400 block uppercase">Budget Spent</span>
+                              <span className="text-lg font-bold text-white">£{simRes.simulatedCost.toFixed(1)}m</span>
+                            </div>
+                            <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                              <span className="text-[10px] text-gray-400 block uppercase">Budget Delta</span>
+                              <span className={`text-lg font-bold ${simRes.costDelta <= 0 ? 'text-[#02c39a]' : 'text-white'}`}>
+                                {simRes.costDelta > 0 ? '+' : ''}{simRes.costDelta.toFixed(1)}m
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] p-4 rounded-xl text-xs text-gray-300 leading-relaxed mb-6">
+                            <strong>Intervention Rationale:</strong> {simRes.opportunityCostExplanation}
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-left">
+                            <div>
+                              <strong className="text-[#02c39a] text-[10px] uppercase block mb-2">Benefits</strong>
+                              {simRes.benefits.length > 0 ? (
+                                <ul className="pl-4 m-0 text-xs text-gray-300 flex flex-col gap-1.5 list-disc">
+                                  {simRes.benefits.map(b => <li key={b}>{b}</li>)}
+                                </ul>
+                              ) : (
+                                <span className="text-xs text-gray-500 italic">No points or cost improvements.</span>
+                              )}
+                            </div>
+                            <div>
+                              <strong className="text-[#f7b731] text-[10px] uppercase block mb-2">Drawbacks & Overheads</strong>
+                              {simRes.drawbacks.length > 0 ? (
+                                <ul className="pl-4 m-0 text-xs text-gray-300 flex flex-col gap-1.5 list-disc">
+                                  {simRes.drawbacks.map(d => <li key={d}>{d}</li>)}
+                                </ul>
+                              ) : (
+                                <span className="text-xs text-gray-500 italic">No points or cost penalties.</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="p-3.5 bg-[rgba(2,195,154,0.04)] border border-[rgba(2,195,154,0.15)] rounded-xl text-xs text-gray-300">
+                            <strong>💡 FPL Coach Tip:</strong> {simRes.educationalTip}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="p-4 bg-[rgba(235,77,75,0.05)] border border-[rgba(235,77,75,0.15)] rounded-xl text-xs text-gray-300">
+                          {simRes.drawbacks[0]}
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                );
+              })() : (
+                <div className="glass-panel text-center py-20">
+                  <TrendingUp className="w-12 h-12 text-gray-500 mx-auto mb-3 opacity-60" />
+                  <h4 className="text-white font-bold text-sm m-0">Baseline Squad Required</h4>
+                  <p className="text-xs text-gray-400 max-w-xs mx-auto mt-2">
+                    Please navigate back to the "Optimal Squad" tab and run the baseline optimization model first, so the simulator can measure the points changes relative to the baseline optimum.
                   </p>
                 </div>
               )}
