@@ -265,14 +265,15 @@ export function PlayerPicker({
                       handleSelectPlayer(player);
                     }
                   }}
-                  className={`flex items-center justify-between px-3 py-2 text-xs border-b border-[#1e2330]/50 transition-all cursor-pointer ${
+                  className={`flex items-center justify-between px-3 py-1.5 text-xs border-b border-[#1e2330]/50 transition-all cursor-pointer h-14 group ${
                     !validation.valid ? 'opacity-40 cursor-not-allowed bg-black/10' : ''
                   } ${isFocused ? 'bg-[rgba(56,189,248,0.06)]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}
                 >
                   {/* Left Column: Player Face + Name + info */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="relative shrink-0 w-7 h-7">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[9px] border border-[rgba(255,255,255,0.08)] bg-[#151824] ${
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {/* Player Photo: 32px diameter, subtle border, opacity transition */}
+                    <div className="relative shrink-0 w-8 h-8 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[9px] border border-[rgba(255,255,255,0.08)] bg-[#151824] ${
                         player.element_type === 1 ? 'text-warning border-warning/20' :
                         player.element_type === 2 ? 'text-[#38bdf8] border-[#38bdf8]/20' :
                         player.element_type === 3 ? 'text-emerald-400 border-emerald-400/20' : 'text-purple-400 border-purple-400/20'
@@ -283,38 +284,54 @@ export function PlayerPicker({
                         src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.code}.png`}
                         alt=""
                         onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                        className="absolute inset-0 w-7 h-7 rounded-full object-cover border border-[#1e2330]"
+                        className="absolute inset-0 w-8 h-8 rounded-full object-cover border border-[#1e2330] bg-[#151824]"
                       />
                       {hasInjury && (
-                        <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-[#f59e0b] rounded-full border border-[#0f111a] flex items-center justify-center text-[8px] font-bold text-black" title={player.news}>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#f59e0b] rounded-full border border-[#0f111a] flex items-center justify-center text-[7px] font-bold text-black" title={player.news}>
                           !
                         </div>
                       )}
                     </div>
                     
-                    <div className="text-left min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-white truncate block">{player.web_name}</span>
-                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{player.team_short_name}</span>
+                    {/* Metadata Rows */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center text-left">
+                      {/* Row 1: Player Name + Recommendation Badge */}
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white truncate text-xs block">{player.web_name}</span>
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 ${
+                          rec.categoryLabel.includes('Essential') || rec.categoryLabel.includes('Strong')
+                            ? 'bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/20'
+                            : rec.categoryLabel.includes('Monitor') || rec.categoryLabel.includes('Differential')
+                            ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20'
+                            : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                        }`}>
+                          {rec.categoryLabel}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-gray-400 block mt-0.5">
-                        {posAbbr} • £{(player.now_cost / 10).toFixed(1)}m • {rec.categoryLabel}
-                      </span>
+
+                      {/* Row 2: Club abbreviation • Position • Price • Projected points */}
+                      <div className="text-[10px] text-gray-400 flex items-center gap-1.5 mt-0.5">
+                        <span className="font-bold text-gray-300 uppercase tracking-wider">{player.team_short_name}</span>
+                        <span className="text-gray-600">•</span>
+                        <span>{posAbbr}</span>
+                        <span className="text-gray-600">•</span>
+                        <span className="font-mono text-white">£{(player.now_cost / 10).toFixed(1)}m</span>
+                        <span className="text-gray-600">•</span>
+                        <span className="text-[#10b981] font-bold font-mono">{player.projected_points.toFixed(1)} EP</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Right Column: Projected score & selection flags */}
+                  {/* Right Column: Selection status indicators */}
                   <div className="text-right shrink-0">
-                    <span className="text-[#10b981] font-bold block">{player.projected_points.toFixed(1)} EP</span>
-                    
                     {!validation.valid && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[#ef4444] font-semibold mt-0.5 inline-block">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[#ef4444] font-semibold inline-block">
                         {validation.reason}
                       </span>
                     )}
 
                     {validation.valid && validation.reason === 'Exceeds Budget' && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 text-[#f59e0b] font-semibold mt-0.5 inline-block">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 text-[#f59e0b] font-semibold inline-block">
                         Exceeds Budget
                       </span>
                     )}
