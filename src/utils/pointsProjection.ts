@@ -1,5 +1,6 @@
 export interface Player {
   id: number;
+  code: number;
   web_name: string;
   team: number;
   team_name: string;
@@ -304,6 +305,7 @@ export function calculateProjectedPoints(
 
     return {
       id: p.el.id,
+      code: p.el.code,
       web_name: p.el.web_name,
       team: p.el.team,
       team_name: p.teamInfo.name,

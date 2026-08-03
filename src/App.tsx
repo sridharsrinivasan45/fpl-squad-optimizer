@@ -21,6 +21,7 @@ import { calculatePlayerRatings } from './utils/recommendationEngine';
 import { generateOptimizationExplanation } from './utils/explainabilityEngine';
 import type { OptimizationExplanation } from './utils/explainabilityEngine';
 import { comparePlayers, simulateDecision } from './utils/decisionSimulator';
+import { PlayerPicker } from './components/PlayerPicker';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(false);
@@ -48,27 +49,18 @@ function App() {
   const [optExplanation, setOptExplanation] = useState<OptimizationExplanation | null>(null);
   const [myTeamExplanation, setMyTeamExplanation] = useState<OptimizationExplanation | null>(null);
 
-  // Search autocomplete states
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [positionFilter, setPositionFilter] = useState<'all' | 'gk' | 'def' | 'mid' | 'fwd'>('all');
-
   // Comparison states
   const [compPlayerA, setCompPlayerA] = useState<Player | null>(null);
   const [compPlayerB, setCompPlayerB] = useState<Player | null>(null);
-  const [compSearchQueryA, setCompSearchQueryA] = useState<string>('');
-  const [compSearchQueryB, setCompSearchQueryB] = useState<string>('');
 
   // Simulation states
   const [simForcedPlayerIds, setSimForcedPlayerIds] = useState<number[]>([]);
   const [simExcludedPlayerIds, setSimExcludedPlayerIds] = useState<number[]>([]);
   const [simCustomBudgetLimit, setSimCustomBudgetLimit] = useState<number>(100.0);
   const [simRiskPreference, setSimRiskPreference] = useState<'safe' | 'balanced' | 'aggressive'>('balanced');
-  const [simSearchForcedQuery, setSimSearchForcedQuery] = useState<string>('');
-  const [simSearchExcludedQuery, setSimSearchExcludedQuery] = useState<string>('');
 
   // Scouting states
   const [scoutingPlayer, setScoutingPlayer] = useState<Player | null>(null);
-  const [scoutingSearchQuery, setScoutingSearchQuery] = useState<string>('');
   
   // UX states
   const [showAdvancedScout, setShowAdvancedScout] = useState<boolean>(false);
@@ -437,96 +429,16 @@ function App() {
                 <h4 className="text-white font-bold text-sm mb-4 tracking-wider text-left">DRAFT YOUR 15-PLAYER SQUAD</h4>
                 
                 <div className="search-picker-card">
-                  <div className="search-input-wrapper">
-                    <input
-                      type="text"
-                      placeholder="Search players by name or club (min 2 characters)..."
-                      className="search-input"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="search-filters-row">
-                    {['all', 'gk', 'def', 'mid', 'fwd'].map((pos) => (
-                      <button
-                        key={pos}
-                        onClick={() => setPositionFilter(pos as any)}
-                        className={`filter-chip ${positionFilter === pos ? 'active' : ''}`}
-                      >
-                        {pos.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-
-                  {searchQuery.length >= 2 ? (
-                    <div className="autocomplete-dropdown custom-scrollbar">
-                      {(() => {
-                        const q = searchQuery.toLowerCase();
-                        const posMap: Record<string, number> = { gk: 1, def: 2, mid: 3, fwd: 4 };
-                        const filtered = allPlayers.filter(p => {
-                          const matchesQuery = p.web_name.toLowerCase().includes(q) || 
-                                               p.team_name.toLowerCase().includes(q) || 
-                                               p.team_short_name.toLowerCase().includes(q);
-                          if (!matchesQuery) return false;
-                          if (positionFilter !== 'all' && p.element_type !== posMap[positionFilter]) return false;
-                          return true;
-                        });
-
-                        if (filtered.length === 0) {
-                          return <div className="p-4 text-xs text-gray-400 text-center">No matching players found</div>;
-                        }
-
-                        return filtered.slice(0, 10).map((player) => {
-                          const isAdded = myTeamSquad.some(p => p.id === player.id);
-                          const posNames = ['GK', 'DEF', 'MID', 'FWD'];
-                          const posName = posNames[player.element_type - 1];
-                          
-                          const currentPosCount = myTeamSquad.filter(p => p.element_type === player.element_type).length;
-                          const maxPos = player.element_type === 1 ? 2 : player.element_type === 2 ? 5 : player.element_type === 3 ? 5 : 3;
-                          const isPosFull = currentPosCount >= maxPos;
-                          
-                          const clubCount = myTeamSquad.filter(p => p.team === player.team).length;
-                          const isClubFull = clubCount >= 3;
-                          
-                          const isSquadFull = myTeamSquad.length >= 15;
-                          
-                          const canAdd = !isAdded && !isPosFull && !isClubFull && !isSquadFull;
-
-                          let disableReason = '';
-                          if (isAdded) disableReason = 'Added';
-                          else if (isSquadFull) disableReason = 'Squad Full';
-                          else if (isPosFull) disableReason = `${posName} Full`;
-                          else if (isClubFull) disableReason = 'Club Max 3';
-
-                          return (
-                            <div key={player.id} className="dropdown-row">
-                              <div className="player-row-details">
-                                <span className="player-row-name">{player.web_name}</span>
-                                <span className="player-row-sub">
-                                  {posName} | {player.team_short_name} | £{(player.now_cost / 10).toFixed(1)}m | Proj: {player.projected_points} pts
-                                </span>
-                              </div>
-                              <button
-                                disabled={!canAdd}
-                                onClick={() => {
-                                  addPlayerToMyTeam(player);
-                                  setSearchQuery('');
-                                }}
-                                className="btn-add-player"
-                              >
-                                {disableReason || 'Add'}
-                              </button>
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] border-dashed rounded-xl text-center text-xs text-gray-400">
-                      Type at least 2 characters to search for players...
-                    </div>
-                  )}
+                  <PlayerPicker
+                    players={allPlayers}
+                    onSelect={addPlayerToMyTeam}
+                    selectedPlayers={myTeamSquad}
+                    budgetRemaining={budgetRemaining}
+                    myTeamSquad={myTeamSquad}
+                    validateMode="my-team"
+                    isPreSeason={isPreSeason}
+                    placeholder="Search or select player to draft..."
+                  />
                 </div>
 
                 <div className="border-t border-[rgba(255,255,255,0.08)] pt-4">
@@ -667,79 +579,14 @@ function App() {
             <div className="grid-left-col">
               <div className="glass-panel">
                 <h4 className="text-white font-bold text-sm mb-4 tracking-wider text-left">SEARCH PLAYER TO SCOUT</h4>
-                
-                <div className="search-picker-card">
-                  <div className="search-input-wrapper">
-                    <input
-                      type="text"
-                      placeholder="Search players by name or club (min 2 characters)..."
-                      className="search-input"
-                      value={scoutingSearchQuery}
-                      onChange={(e) => setScoutingSearchQuery(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="search-filters-row">
-                    {['all', 'gk', 'def', 'mid', 'fwd'].map((pos) => (
-                      <button
-                        key={pos}
-                        onClick={() => setPositionFilter(pos as any)}
-                        className={`filter-chip ${positionFilter === pos ? 'active' : ''}`}
-                      >
-                        {pos.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-
-                  {scoutingSearchQuery.length >= 2 ? (
-                    <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '350px' }}>
-                      {(() => {
-                        const q = scoutingSearchQuery.toLowerCase();
-                        const posMap: Record<string, number> = { gk: 1, def: 2, mid: 3, fwd: 4 };
-                        const filtered = allPlayers.filter(p => {
-                          const matchesQuery = p.web_name.toLowerCase().includes(q) || 
-                                               p.team_name.toLowerCase().includes(q) || 
-                                               p.team_short_name.toLowerCase().includes(q);
-                          if (!matchesQuery) return false;
-                          if (positionFilter !== 'all' && p.element_type !== posMap[positionFilter]) return false;
-                          return true;
-                        });
-
-                        if (filtered.length === 0) {
-                          return <div className="p-4 text-xs text-gray-400 text-center">No matching players found</div>;
-                        }
-
-                        return filtered.slice(0, 10).map((player) => {
-                          const posNames = ['GK', 'DEF', 'MID', 'FWD'];
-                          const posName = posNames[player.element_type - 1];
-                          const rec = calculatePlayerRatings(player, isPreSeason, allPlayers[0]?.starts ? 38 : 0);
-                          
-                          return (
-                            <div 
-                              key={player.id} 
-                              className={`dropdown-row cursor-pointer hover:bg-[rgba(255,255,255,0.03)] ${scoutingPlayer?.id === player.id ? 'bg-[rgba(2,195,154,0.05)] border-l-2 border-l-[#02c39a]' : ''}`}
-                              onClick={() => {
-                                setScoutingPlayer(player);
-                                setScoutingSearchQuery('');
-                              }}
-                            >
-                              <div className="player-row-details">
-                                <span className="player-row-name text-left block">{player.web_name}</span>
-                                <span className="player-row-sub text-left block">
-                                  {posName} | {player.team_short_name} | £{(player.now_cost / 10).toFixed(1)}m | {rec.categoryLabel}
-                                </span>
-                              </div>
-                              <span className="text-xs font-bold text-[#02c39a]">{player.projected_points} pts</span>
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] border-dashed rounded-xl text-center text-xs text-gray-400">
-                      Type at least 2 characters to search...
-                    </div>
-                  )}
+                        <div className="search-picker-card">
+                  <PlayerPicker
+                    players={allPlayers}
+                    onSelect={(p) => setScoutingPlayer(p)}
+                    validateMode="scouting"
+                    isPreSeason={isPreSeason}
+                    placeholder="Search or select player to scout..."
+                  />
                 </div>
 
                 {/* Popular recommendations list as quick links */}
@@ -955,7 +802,7 @@ function App() {
                         <span className="text-gray-400 block text-[10px]">{compPlayerA.team_name} • £{(compPlayerA.now_cost/10).toFixed(1)}m</span>
                       </div>
                       <button 
-                        onClick={() => { setCompPlayerA(null); setCompSearchQueryA(''); }}
+                        onClick={() => { setCompPlayerA(null); }}
                         className="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[rgba(255,255,255,0.05)] text-[10px] font-bold"
                       >
                         Reset
@@ -963,33 +810,14 @@ function App() {
                     </div>
                   ) : (
                     <div className="search-picker-card">
-                      <input
-                        type="text"
-                        placeholder="Type player name to search..."
-                        className="search-input"
-                        value={compSearchQueryA}
-                        onChange={(e) => setCompSearchQueryA(e.target.value)}
+                      <PlayerPicker
+                        players={allPlayers}
+                        onSelect={(p) => setCompPlayerA(p)}
+                        selectedPlayers={compPlayerB ? [compPlayerB] : []}
+                        validateMode="comparison"
+                        isPreSeason={isPreSeason}
+                        placeholder="Search or select Player A..."
                       />
-                      {compSearchQueryA.length >= 2 && (
-                        <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '180px' }}>
-                          {allPlayers
-                            .filter(p => p.web_name.toLowerCase().includes(compSearchQueryA.toLowerCase()))
-                            .slice(0, 5)
-                            .map(p => (
-                              <div 
-                                key={p.id} 
-                                className="dropdown-row cursor-pointer text-left hover:bg-[rgba(255,255,255,0.03)]"
-                                onClick={() => { setCompPlayerA(p); setCompSearchQueryA(''); }}
-                              >
-                                <div>
-                                  <span className="player-row-name block">{p.web_name}</span>
-                                  <span className="player-row-sub block">{p.team_name} | £{(p.now_cost/10).toFixed(1)}m</span>
-                                </div>
-                                <span className="text-xs font-bold text-[#02c39a]">{p.projected_points} pts</span>
-                              </div>
-                            ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -1004,7 +832,7 @@ function App() {
                         <span className="text-gray-400 block text-[10px]">{compPlayerB.team_name} • £{(compPlayerB.now_cost/10).toFixed(1)}m</span>
                       </div>
                       <button 
-                        onClick={() => { setCompPlayerB(null); setCompSearchQueryB(''); }}
+                        onClick={() => { setCompPlayerB(null); }}
                         className="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[rgba(255,255,255,0.05)] text-[10px] font-bold"
                       >
                         Reset
@@ -1012,33 +840,14 @@ function App() {
                     </div>
                   ) : (
                     <div className="search-picker-card">
-                      <input
-                        type="text"
-                        placeholder="Type player name to search..."
-                        className="search-input"
-                        value={compSearchQueryB}
-                        onChange={(e) => setCompSearchQueryB(e.target.value)}
+                      <PlayerPicker
+                        players={allPlayers}
+                        onSelect={(p) => setCompPlayerB(p)}
+                        selectedPlayers={compPlayerA ? [compPlayerA] : []}
+                        validateMode="comparison"
+                        isPreSeason={isPreSeason}
+                        placeholder="Search or select Player B..."
                       />
-                      {compSearchQueryB.length >= 2 && (
-                        <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '180px' }}>
-                          {allPlayers
-                            .filter(p => p.web_name.toLowerCase().includes(compSearchQueryB.toLowerCase()))
-                            .slice(0, 5)
-                            .map(p => (
-                              <div 
-                                key={p.id} 
-                                className="dropdown-row cursor-pointer text-left hover:bg-[rgba(255,255,255,0.03)]"
-                                onClick={() => { setCompPlayerB(p); setCompSearchQueryB(''); }}
-                              >
-                                <div>
-                                  <span className="player-row-name block">{p.web_name}</span>
-                                  <span className="player-row-sub block">{p.team_name} | £{(p.now_cost/10).toFixed(1)}m</span>
-                                </div>
-                                <span className="text-xs font-bold text-[#02c39a]">{p.projected_points} pts</span>
-                              </div>
-                            ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -1288,33 +1097,14 @@ function App() {
                 <div className="mb-6 text-left">
                   <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-2">Force Player (Lock in Squad)</label>
                   <div className="search-picker-card">
-                    <input
-                      type="text"
-                      placeholder="Type name to force select (locks in squad)..."
-                      className="search-input"
-                      value={simSearchForcedQuery}
-                      onChange={(e) => setSimSearchForcedQuery(e.target.value)}
+                    <PlayerPicker
+                      players={allPlayers}
+                      onSelect={(p) => setSimForcedPlayerIds([...simForcedPlayerIds, p.id])}
+                      selectedPlayers={allPlayers.filter(p => simForcedPlayerIds.includes(p.id) || simExcludedPlayerIds.includes(p.id))}
+                      validateMode="simulation"
+                      isPreSeason={isPreSeason}
+                      placeholder="Search or select player to lock..."
                     />
-                    {simSearchForcedQuery.length >= 2 && (
-                      <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '180px' }}>
-                        {allPlayers
-                          .filter(p => p.web_name.toLowerCase().includes(simSearchForcedQuery.toLowerCase()) && !simForcedPlayerIds.includes(p.id))
-                          .slice(0, 5)
-                          .map(p => (
-                            <div 
-                              key={p.id} 
-                              className="dropdown-row cursor-pointer text-left hover:bg-[rgba(255,255,255,0.03)]"
-                              onClick={() => { 
-                                setSimForcedPlayerIds([...simForcedPlayerIds, p.id]); 
-                                setSimSearchForcedQuery(''); 
-                              }}
-                            >
-                              <span>{p.web_name} ({p.team_short_name})</span>
-                              <span className="text-xs text-[#02c39a] font-bold">Lock</span>
-                            </div>
-                          ))}
-                      </div>
-                    )}
                   </div>
                   {simForcedPlayerIds.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
@@ -1335,33 +1125,14 @@ function App() {
                 <div className="mb-6 text-left">
                   <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-2">Exclude Player (Lock Out of Squad)</label>
                   <div className="search-picker-card">
-                    <input
-                      type="text"
-                      placeholder="Type name to exclude (locks out of squad)..."
-                      className="search-input"
-                      value={simSearchExcludedQuery}
-                      onChange={(e) => setSimSearchExcludedQuery(e.target.value)}
+                    <PlayerPicker
+                      players={allPlayers}
+                      onSelect={(p) => setSimExcludedPlayerIds([...simExcludedPlayerIds, p.id])}
+                      selectedPlayers={allPlayers.filter(p => simForcedPlayerIds.includes(p.id) || simExcludedPlayerIds.includes(p.id))}
+                      validateMode="simulation"
+                      isPreSeason={isPreSeason}
+                      placeholder="Search or select player to exclude..."
                     />
-                    {simSearchExcludedQuery.length >= 2 && (
-                      <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '180px' }}>
-                        {allPlayers
-                          .filter(p => p.web_name.toLowerCase().includes(simSearchExcludedQuery.toLowerCase()) && !simExcludedPlayerIds.includes(p.id))
-                          .slice(0, 5)
-                          .map(p => (
-                            <div 
-                              key={p.id} 
-                              className="dropdown-row cursor-pointer text-left hover:bg-[rgba(255,255,255,0.03)]"
-                              onClick={() => { 
-                                setSimExcludedPlayerIds([...simExcludedPlayerIds, p.id]); 
-                                setSimSearchExcludedQuery(''); 
-                              }}
-                            >
-                              <span>{p.web_name} ({p.team_short_name})</span>
-                              <span className="text-xs text-[#e74c3c] font-bold">Exclude</span>
-                            </div>
-                          ))}
-                      </div>
-                    )}
                   </div>
                   {simExcludedPlayerIds.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
