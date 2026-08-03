@@ -18,6 +18,15 @@ export interface Player {
   }>;
   status: string;
   news: string;
+  confidence?: number;
+  breakdown?: {
+    baseProjection: number;
+    fixtureAdjustment: number; // average FDR adjustment percent (e.g. 10 for +10%)
+    homeAdvantage: number;     // home bonus percent (e.g. 5 for +5%)
+    playingProbabilityAdjustment: number; // playing probability percent (e.g. 98 for 98%)
+    finalProjection: number;
+    confidenceScore: number;
+  };
 }
 
 export interface ProjectionResult {
@@ -39,7 +48,7 @@ export function calculateProjectedPoints(
   const gwFixtures = fixtures.filter((f: any) => f.event === currentGameweek);
 
   // Detect pre-season mode:
-  // If the maximum form across all players is <= 0.05, we fallback to points_per_game.
+  // If the maximum form across all players is <= 0.05, we are in pre-season.
   let maxForm = 0;
   elements.forEach((el: any) => {
     const f = parseFloat(el.form) || 0;
@@ -47,13 +56,23 @@ export function calculateProjectedPoints(
   });
   const isPreSeason = maxForm <= 0.05;
 
-  // Calculate matches available per team (finished fixtures)
+  // Calculate matches available per team (finished fixtures) in the current season
   const matchesAvailableMap = new Map<number, number>();
   teams.forEach((t: any) => {
     const teamFinishedFixtures = fixtures.filter(
       (f: any) => (f.team_h === t.id || f.team_a === t.id) && f.finished === true
     );
     matchesAvailableMap.set(t.id, teamFinishedFixtures.length);
+  });
+
+  // Identify promoted teams dynamically (where average player points_per_game is < 0.8 in pre-season)
+  const promotedTeams = new Set<number>();
+  teams.forEach((t: any) => {
+    const teamPlayers = elements.filter((el: any) => el.team === t.id);
+    const avgPPG = teamPlayers.reduce((acc, el) => acc + (parseFloat(el.points_per_game) || 0), 0) / Math.max(1, teamPlayers.length);
+    if (avgPPG < 0.8) {
+      promotedTeams.add(t.id);
+    }
   });
 
   // Pass 1: Build player objects, calculate base projection, and estimate initial playing probability
@@ -63,25 +82,68 @@ export function calculateProjectedPoints(
     
     const form = parseFloat(el.form) || 0;
     const ppg = parseFloat(el.points_per_game) || 0;
-    const basePoints = isPreSeason ? ppg : form;
+
+    // Transition weight w: blends from 1.0 (pre-season) to 0.0 (5+ matches played)
+    const matchesAvailable = matchesAvailableMap.get(teamId) || 0;
+    const w = Math.max(0, 1 - (matchesAvailable / 5));
+
+    // Blended baseline points:
+    // If a player has no historical points_per_game (e.g. promoted/new), estimate baseline using FPL price
+    let estimatedPpg = ppg;
+    if (ppg === 0) {
+      const posMapDefaults = { 1: 2.5, 2: 2.0, 3: 2.5, 4: 3.0 };
+      const defaultPosPPG = posMapDefaults[el.element_type as keyof typeof posMapDefaults] || 2.5;
+      const costEstimatePPG = el.now_cost / 20;
+      estimatedPpg = Math.max(defaultPosPPG, costEstimatePPG);
+    }
+
+    const basePoints = w * estimatedPpg + (1 - w) * form;
     
     const playerGwFixtures = gwFixtures.filter(
       (f: any) => f.team_h === teamId || f.team_a === teamId
     );
 
-    // Calculate Base Projection (sum of fixture projections without probability factor)
-    let baseProjection = 0;
+    // Calculate Base Projections & Adjustments
+    let totalBaseProjection = 0;
+    let totalFdrMultiplier = 0;
+    let totalHomeMultiplier = 0;
+    let totalPromotedMultiplier = 0;
+    let totalAdjustedProjection = 0;
+
     const mappedFixtures = playerGwFixtures.map((f: any) => {
       const isHome = f.team_h === teamId;
       const opponentId = isHome ? f.team_a : f.team_h;
       const opponentInfo = teamMap.get(opponentId) || { name: 'Unknown', short_name: 'UNK' };
       const difficulty = isHome ? f.team_h_difficulty : f.team_a_difficulty;
 
-      // FDR difficulty multiplier:
-      // Multiplier = (6 - FDR) / 3.5
-      const fdrMultiplier = (6 - difficulty) / 3.5;
-      const fixtureProjection = basePoints * fdrMultiplier;
-      baseProjection += fixtureProjection;
+      // 1. FDR difficulty multiplier:
+      // Pre-season: 1: +20%, 2: +10%, 3: 0%, 4: -10%, 5: -20%
+      const fdrPreSeasonMap: Record<number, number> = { 1: 1.20, 2: 1.10, 3: 1.00, 4: 0.90, 5: 0.80 };
+      const fdrPreSeason = fdrPreSeasonMap[difficulty] || 1.00;
+      
+      // In-season: (6 - FDR) / 3.5
+      const fdrInSeason = (6 - difficulty) / 3.5;
+      
+      // Blended FDR multiplier
+      const fdrMultiplier = w * fdrPreSeason + (1 - w) * fdrInSeason;
+
+      // 2. Home advantage multiplier (+5% in pre-season, blends to 1.00 in-season)
+      const homeBonus = isHome ? 1.05 : 1.00;
+      const homeMultiplier = w * homeBonus + (1 - w) * 1.00;
+
+      // 3. Promoted team reduction (20% reduction in pre-season, blends to 1.00 in-season)
+      const isPromoted = promotedTeams.has(teamId);
+      const promotedDiscount = isPromoted ? 0.80 : 1.00;
+      const promotedMultiplier = w * promotedDiscount + (1 - w) * 1.00;
+
+      // Accumulate raw and adjusted totals
+      totalBaseProjection += basePoints;
+      totalFdrMultiplier += fdrMultiplier;
+      totalHomeMultiplier += homeMultiplier;
+      totalPromotedMultiplier += promotedMultiplier;
+
+      const fixtureProjection = basePoints * fdrMultiplier * homeMultiplier * promotedMultiplier;
+      totalAdjustedProjection += fixtureProjection;
 
       return {
         opponent: opponentInfo.short_name,
@@ -90,14 +152,13 @@ export function calculateProjectedPoints(
       };
     });
 
-    const matchesAvailable = matchesAvailableMap.get(teamId) || 0;
-    
     // STEP 1 & 2: Playing Probability Initial Estimate
     let playingProbability = 1.0;
     if (el.chance_of_playing_next_round !== null && el.chance_of_playing_next_round !== undefined) {
       playingProbability = el.chance_of_playing_next_round / 100;
     } else {
       if (matchesAvailable > 0) {
+        // In-season estimation using active statistics
         const teamMinutes = matchesAvailable * 90;
         const minutesRatio = Math.max(0, Math.min(1.0, el.minutes / teamMinutes));
         const startsRatio = Math.max(0, Math.min(1.0, el.starts / matchesAvailable));
@@ -105,12 +166,19 @@ export function calculateProjectedPoints(
         playingProbability = 0.20 + 0.50 * minutesRatio + 0.30 * startsRatio;
         playingProbability = Math.max(0.05, Math.min(1.00, playingProbability));
       } else {
-        // Pre-season fallback
-        playingProbability = 1.0;
+        // Pre-season: Estimate using last season's totals (assume 38 matches / 3420 team minutes)
+        const lastSeasonMinutes = el.minutes || 0;
+        const lastSeasonStarts = el.starts || 0;
+        
+        const minutesRatio = Math.max(0, Math.min(1.0, lastSeasonMinutes / 3420));
+        const startsRatio = Math.max(0, Math.min(1.0, lastSeasonStarts / 38));
+        
+        playingProbability = 0.20 + 0.50 * minutesRatio + 0.30 * startsRatio;
+        playingProbability = Math.max(0.05, Math.min(1.00, playingProbability));
       }
     }
 
-    const avgMinutes = matchesAvailable > 0 ? el.minutes / matchesAvailable : 90;
+    const avgMinutes = matchesAvailable > 0 ? el.minutes / matchesAvailable : (el.starts > 0 ? el.minutes / el.starts : 90);
 
     return {
       el,
@@ -118,11 +186,17 @@ export function calculateProjectedPoints(
       teamInfo,
       form,
       ppg,
-      baseProjection,
+      basePoints,
+      totalBaseProjection,
+      avgFdrMultiplier: playerGwFixtures.length > 0 ? totalFdrMultiplier / playerGwFixtures.length : 1.0,
+      avgHomeMultiplier: playerGwFixtures.length > 0 ? totalHomeMultiplier / playerGwFixtures.length : 1.0,
+      avgPromotedMultiplier: playerGwFixtures.length > 0 ? totalPromotedMultiplier / playerGwFixtures.length : 1.0,
+      totalAdjustedProjection,
       mappedFixtures,
       playingProbability,
       avgMinutes,
-      matchesAvailable
+      matchesAvailable,
+      w
     };
   });
 
@@ -140,7 +214,7 @@ export function calculateProjectedPoints(
   });
 
   gksByTeam.forEach((gks) => {
-    // Sort goalkeepers by: minutes played, then now_cost, then selected_by_percent
+    // Sort goalkeepers by: minutes played (last season in pre-season, current season in-season), then now_cost, then selection percentage
     gks.sort((a, b) => {
       if (b.el.minutes !== a.el.minutes) {
         return b.el.minutes - a.el.minutes;
@@ -155,7 +229,7 @@ export function calculateProjectedPoints(
     const gk2 = gks[1];
     const gkOthers = gks.slice(2);
 
-    // Exception:
+    // Exception check:
     // If the second goalkeeper has played more minutes than the first over the last 5 league matches,
     // do NOT apply this override.
     // Proxy: we check if matchesAvailable >= 5 and the form of gk2 is strictly higher than gk1.
@@ -174,7 +248,7 @@ export function calculateProjectedPoints(
     }
   });
 
-  // Pass 3: Adjust probabilities and calculate final expected points
+  // Pass 3: Adjust probabilities, compute confidence score, and build final expected points
   const players = playerTempData.map(p => {
     let prob = p.playingProbability;
 
@@ -198,8 +272,29 @@ export function calculateProjectedPoints(
       prob *= 0.70;
     }
 
-    // STEP 6: Final Expected Points
-    const expectedPoints = Math.round(p.baseProjection * prob * 100) / 100;
+    // STEP 6: Final expected points calculation
+    const expectedPoints = Math.round(p.totalAdjustedProjection * prob * 100) / 100;
+
+    // Calculate confidence score (0-100)
+    // 1. Playing Probability (40%)
+    const probFactor = prob * 40;
+    
+    // 2. Previous-Season / Current-Season Minutes (30%)
+    const minutesRef = p.matchesAvailable > 0 ? (p.matchesAvailable * 90) : 3000;
+    const minutesFactor = Math.min(1.0, p.el.minutes / minutesRef) * 30;
+    
+    // 3. Injury Status (20%)
+    const statusFactor = p.el.status === 'a' ? 20 : p.el.status === 'd' ? 10 : 0;
+    
+    // 4. Sample Size (Starts) (10%)
+    const startsRef = p.matchesAvailable > 0 ? p.matchesAvailable : 30;
+    const sampleFactor = Math.min(1.0, p.el.starts / startsRef) * 10;
+
+    const confidenceScore = Math.min(100, Math.max(0, Math.round(probFactor + minutesFactor + statusFactor + sampleFactor)));
+
+    // Adjustments percentages for the breakdown summary
+    const fixtureAdjustmentPercent = Math.round((p.avgFdrMultiplier * p.avgPromotedMultiplier - 1) * 100);
+    const homeAdvantagePercent = Math.round((p.avgHomeMultiplier - 1) * 100);
 
     return {
       id: p.el.id,
@@ -216,7 +311,16 @@ export function calculateProjectedPoints(
       projected_points: expectedPoints,
       fixtures: p.mappedFixtures,
       status: p.el.status || 'a',
-      news: p.el.news || ''
+      news: p.el.news || '',
+      confidence: confidenceScore,
+      breakdown: {
+        baseProjection: Math.round(p.totalBaseProjection * 100) / 100,
+        fixtureAdjustment: fixtureAdjustmentPercent,
+        homeAdvantage: homeAdvantagePercent,
+        playingProbabilityAdjustment: Math.round(prob * 100),
+        finalProjection: expectedPoints,
+        confidenceScore
+      }
     };
   });
 
