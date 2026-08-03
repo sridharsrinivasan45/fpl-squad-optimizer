@@ -65,6 +65,7 @@ function App() {
   // UX states
   const [showAdvancedScout, setShowAdvancedScout] = useState<boolean>(false);
   const [modalTab, setModalTab] = useState<'guide' | 'academy'>('guide');
+  const [pickerActive, setPickerActive] = useState<boolean>(false);
 
   // Load database on mount
   const loadInitialData = async (force: boolean = false): Promise<Player[]> => {
@@ -438,43 +439,46 @@ function App() {
                     validateMode="my-team"
                     isPreSeason={isPreSeason}
                     placeholder="Search or select player to draft..."
+                    onOpenChange={setPickerActive}
                   />
                 </div>
 
-                <div className="border-t border-[rgba(255,255,255,0.08)] pt-4">
-                  <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-2 text-left">Drafted Roster ({myTeamSquad.length} / 15)</h5>
-                  {myTeamSquad.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-gray-500 italic">No players drafted yet. Use the search bar above to build your squad.</div>
-                  ) : (
-                    <div className="roster-list custom-scrollbar" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                      {myTeamSquad
-                        .sort((a, b) => {
-                          if (a.element_type !== b.element_type) return a.element_type - b.element_type;
-                          return b.projected_points - a.projected_points;
-                        })
-                        .map((player) => {
-                          const posNames = ['GK', 'DEF', 'MID', 'FWD'];
-                          const posName = posNames[player.element_type - 1];
-                          return (
-                            <div key={player.id} className="roster-item">
-                              <div className="text-left">
-                                <span className="font-semibold text-white text-xs block">{player.web_name}</span>
-                                <span className="text-[10px] text-gray-400">
-                                  {posName} | {player.team_short_name} | £{(player.now_cost / 10).toFixed(1)}m | Proj: {player.projected_points} pts
-                                </span>
+                {!pickerActive && (
+                  <div className="border-t border-[rgba(255,255,255,0.08)] pt-4">
+                    <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-2 text-left">Drafted Roster ({myTeamSquad.length} / 15)</h5>
+                    {myTeamSquad.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-gray-500 italic">No players drafted yet. Use the search bar above to build your squad.</div>
+                    ) : (
+                      <div className="roster-list custom-scrollbar" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                        {myTeamSquad
+                          .sort((a, b) => {
+                            if (a.element_type !== b.element_type) return a.element_type - b.element_type;
+                            return b.projected_points - a.projected_points;
+                          })
+                          .map((player) => {
+                            const posNames = ['GK', 'DEF', 'MID', 'FWD'];
+                            const posName = posNames[player.element_type - 1];
+                            return (
+                              <div key={player.id} className="roster-item">
+                                <div className="text-left">
+                                  <span className="font-semibold text-white text-xs block">{player.web_name}</span>
+                                  <span className="text-[10px] text-gray-400">
+                                    {posName} | {player.team_short_name} | £{(player.now_cost / 10).toFixed(1)}m | Proj: {player.projected_points} pts
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => removePlayerFromMyTeam(player.id)}
+                                  className="btn-remove-player"
+                                >
+                                  Remove
+                                </button>
                               </div>
-                              <button
-                                onClick={() => removePlayerFromMyTeam(player.id)}
-                                className="btn-remove-player"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -586,36 +590,38 @@ function App() {
                     validateMode="scouting"
                     isPreSeason={isPreSeason}
                     placeholder="Search or select player to scout..."
+                    onOpenChange={setPickerActive}
                   />
                 </div>
 
-                {/* Popular recommendations list as quick links */}
-                <div className="border-t border-[rgba(255,255,255,0.08)] pt-4 mt-6">
-                  <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-3 text-left">TOP SCOUTING RECOMMENDATIONS</h5>
-                  <div className="flex flex-col gap-2">
-                    {allPlayers
-                      .slice(0, 5)
-                      .map(p => {
-                        const rec = calculatePlayerRatings(p, isPreSeason, 0);
-                        return (
-                          <div 
-                            key={p.id}
-                            onClick={() => setScoutingPlayer(p)}
-                            className="p-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.05)] cursor-pointer flex justify-between items-center text-xs transition-all"
-                          >
-                            <div className="text-left">
-                              <strong className="text-white">{p.web_name}</strong>
-                              <span className="text-gray-400 block text-[10px]">{p.team_name} | £{(p.now_cost/10).toFixed(1)}m</span>
+                {!pickerActive && (
+                  <div className="border-t border-[rgba(255,255,255,0.08)] pt-4 mt-6">
+                    <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-3 text-left">TOP SCOUTING RECOMMENDATIONS</h5>
+                    <div className="flex flex-col gap-2">
+                      {allPlayers
+                        .slice(0, 5)
+                        .map(p => {
+                          const rec = calculatePlayerRatings(p, isPreSeason, 0);
+                          return (
+                            <div 
+                              key={p.id}
+                              onClick={() => setScoutingPlayer(p)}
+                              className="p-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.05)] cursor-pointer flex justify-between items-center text-xs transition-all"
+                            >
+                              <div className="text-left">
+                                <strong className="text-white">{p.web_name}</strong>
+                                <span className="text-gray-400 block text-[10px]">{p.team_name} | £{(p.now_cost/10).toFixed(1)}m</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[#02c39a] font-bold block">{p.projected_points} pts</span>
+                                <span className="text-[10px] text-gray-500">{rec.categoryLabel}</span>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className="text-[#02c39a] font-bold block">{p.projected_points} pts</span>
-                              <span className="text-[10px] text-gray-500">{rec.categoryLabel}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -817,6 +823,7 @@ function App() {
                         validateMode="comparison"
                         isPreSeason={isPreSeason}
                         placeholder="Search or select Player A..."
+                        onOpenChange={setPickerActive}
                       />
                     </div>
                   )}
@@ -847,35 +854,38 @@ function App() {
                         validateMode="comparison"
                         isPreSeason={isPreSeason}
                         placeholder="Search or select Player B..."
+                        onOpenChange={setPickerActive}
                       />
                     </div>
                   )}
                 </div>
 
                 {/* Popular comparison templates */}
-                <div className="border-t border-[rgba(255,255,255,0.08)] pt-4 mt-6">
-                  <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-3 text-left">POPULAR COMPARISONS</h5>
-                  <div className="flex flex-col gap-2">
-                    {[
-                      { nameA: 'Haaland', nameB: 'Salah' },
-                      { nameA: 'Saka', nameB: 'Palmer' },
-                      { nameA: 'Gabriel', nameB: 'Gvardiol' }
-                    ].map((comp, idx) => {
-                      const pA = allPlayers.find(p => p.web_name.toLowerCase().includes(comp.nameA.toLowerCase()));
-                      const pB = allPlayers.find(p => p.web_name.toLowerCase().includes(comp.nameB.toLowerCase()));
-                      if (!pA || !pB) return null;
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => { setCompPlayerA(pA); setCompPlayerB(pB); }}
-                          className="w-full text-left p-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.05)] text-xs text-gray-300 transition-all"
-                        >
-                          Compare <strong>{pA.web_name}</strong> vs <strong>{pB.web_name}</strong>
-                        </button>
-                      );
-                    })}
+                {!pickerActive && (
+                  <div className="border-t border-[rgba(255,255,255,0.08)] pt-4 mt-6">
+                    <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-3 text-left">POPULAR COMPARISONS</h5>
+                    <div className="flex flex-col gap-2">
+                      {[
+                        { nameA: 'Haaland', nameB: 'Salah' },
+                        { nameA: 'Saka', nameB: 'Palmer' },
+                        { nameA: 'Gabriel', nameB: 'Gvardiol' }
+                      ].map((comp, idx) => {
+                        const pA = allPlayers.find(p => p.web_name.toLowerCase().includes(comp.nameA.toLowerCase()));
+                        const pB = allPlayers.find(p => p.web_name.toLowerCase().includes(comp.nameB.toLowerCase()));
+                        if (!pA || !pB) return null;
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => { setCompPlayerA(pA); setCompPlayerB(pB); }}
+                            className="w-full text-left p-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.05)] text-xs text-gray-300 transition-all"
+                          >
+                            Compare <strong>{pA.web_name}</strong> vs <strong>{pB.web_name}</strong>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
               </div>
             </div>
@@ -1104,9 +1114,10 @@ function App() {
                       validateMode="simulation"
                       isPreSeason={isPreSeason}
                       placeholder="Search or select player to lock..."
+                      onOpenChange={setPickerActive}
                     />
                   </div>
-                  {simForcedPlayerIds.length > 0 && (
+                  {!pickerActive && simForcedPlayerIds.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
                       {simForcedPlayerIds.map(id => {
                         const p = allPlayers.find(x => x.id === id);
@@ -1132,9 +1143,10 @@ function App() {
                       validateMode="simulation"
                       isPreSeason={isPreSeason}
                       placeholder="Search or select player to exclude..."
+                      onOpenChange={setPickerActive}
                     />
                   </div>
-                  {simExcludedPlayerIds.length > 0 && (
+                  {!pickerActive && simExcludedPlayerIds.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
                       {simExcludedPlayerIds.map(id => {
                         const p = allPlayers.find(x => x.id === id);

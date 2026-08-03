@@ -13,6 +13,7 @@ interface PlayerPickerProps {
   validateMode?: 'my-team' | 'scouting' | 'comparison' | 'simulation';
   excludeIds?: number[];
   isPreSeason?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
 export function PlayerPicker({
@@ -24,9 +25,11 @@ export function PlayerPicker({
   budgetRemaining,
   validateMode = 'my-team',
   excludeIds = [],
-  isPreSeason = false
+  isPreSeason = false,
+  onOpenChange
 }: PlayerPickerProps) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [animateOpen, setAnimateOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [posFilter, setPosFilter] = useState<'all' | 1 | 2 | 3 | 4>('all');
   const [clubFilter, setClubFilter] = useState<string>('all');
@@ -35,6 +38,19 @@ export function PlayerPicker({
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Notify parent component of open state changes
+  useEffect(() => {
+    if (onOpenChange) {
+      onOpenChange(isOpen);
+    }
+    if (isOpen) {
+      const timer = setTimeout(() => setAnimateOpen(true), 10);
+      return () => clearTimeout(timer);
+    } else {
+      setAnimateOpen(false);
+    }
+  }, [isOpen, onOpenChange]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -47,7 +63,7 @@ export function PlayerPicker({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Reset focus index when filtered list changes
+  // Reset focus index when filters change
   useEffect(() => {
     setFocusedIndex(0);
   }, [searchQuery, posFilter, clubFilter]);
@@ -94,43 +110,70 @@ export function PlayerPicker({
     return { valid: true };
   };
 
-  // Cascading filters pipeline
-  const filteredPlayers = players
-    .filter(player => {
-      // 1. Position filter
-      if (posFilter !== 'all' && player.element_type !== posFilter) return false;
-      // 2. Club filter
-      if (clubFilter !== 'all' && player.team_name !== clubFilter) return false;
-      // 3. Search query filter
-      if (searchQuery.trim() !== '') {
-        const query = searchQuery.toLowerCase();
-        return (
-          player.web_name.toLowerCase().includes(query) ||
-          player.team_name.toLowerCase().includes(query) ||
-          player.team_short_name.toLowerCase().includes(query)
-        );
-      }
-      return true;
-    })
-    .map(player => ({
-      player,
-      validation: validatePlayer(player)
-    }))
-    .sort((a, b) => {
-      // Prioritize available points
-      const pointsDiff = b.player.projected_points - a.player.projected_points;
+  // Base filtered players list
+  const baseFiltered = players.filter(player => {
+    if (posFilter !== 'all' && player.element_type !== posFilter) return false;
+    if (clubFilter !== 'all' && player.team_name !== clubFilter) return false;
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      return (
+        player.web_name.toLowerCase().includes(query) ||
+        player.team_name.toLowerCase().includes(query) ||
+        player.team_short_name.toLowerCase().includes(query)
+      );
+    }
+    return true;
+  });
+
+  // Sort helper
+  const sortPlayers = (list: Player[]) => {
+    return [...list].sort((a, b) => {
+      const pointsDiff = b.projected_points - a.projected_points;
       if (Math.abs(pointsDiff) > 0.05) return pointsDiff;
 
-      // Prioritize ratings
-      const recA = calculatePlayerRatings(a.player, isPreSeason, 0);
-      const recB = calculatePlayerRatings(b.player, isPreSeason, 0);
+      const recA = calculatePlayerRatings(a, isPreSeason, 0);
+      const recB = calculatePlayerRatings(b, isPreSeason, 0);
       const ratingDiff = recB.ratings.overallRating - recA.ratings.overallRating;
       if (Math.abs(ratingDiff) > 0.05) return ratingDiff;
 
-      // Alphabetical tiebreaker
-      return a.player.web_name.localeCompare(b.player.web_name);
-    })
-    .slice(0, 80); // Cap list at 80 items for performance
+      return a.web_name.localeCompare(b.web_name);
+    });
+  };
+
+  // Compile final items list with headers if appropriate
+  interface RenderItem {
+    type: 'header' | 'player';
+    label?: string;
+    key: string;
+    player?: Player;
+    validation?: { valid: boolean; reason?: string; warningOnly?: boolean };
+  }
+
+  let itemsToRender: RenderItem[] = [];
+
+  if (searchQuery.trim() === '' && posFilter === 'all' && clubFilter === 'all') {
+    const sorted = sortPlayers(players);
+    const popular = sorted.slice(0, 5);
+    const others = sorted.slice(5, 80);
+
+    itemsToRender.push({ type: 'header', label: 'Popular Picks (Highest Projected)', key: 'hdr-popular' });
+    popular.forEach(p => {
+      itemsToRender.push({ type: 'player', player: p, validation: validatePlayer(p), key: `popular-${p.id}` });
+    });
+
+    itemsToRender.push({ type: 'header', label: 'All Players', key: 'hdr-all' });
+    others.forEach(p => {
+      itemsToRender.push({ type: 'player', player: p, validation: validatePlayer(p), key: `all-${p.id}` });
+    });
+  } else {
+    const sorted = sortPlayers(baseFiltered).slice(0, 80);
+    sorted.forEach(p => {
+      itemsToRender.push({ type: 'player', player: p, validation: validatePlayer(p), key: `search-${p.id}` });
+    });
+  }
+
+  // Extract only player items for keyboard navigation index map
+  const playerItems = itemsToRender.filter(item => item.type === 'player');
 
   // Handle keyboard interaction
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -144,7 +187,7 @@ export function PlayerPicker({
 
     switch (e.key) {
       case 'ArrowDown':
-        setFocusedIndex(prev => (prev + 1 < filteredPlayers.length ? prev + 1 : prev));
+        setFocusedIndex(prev => (prev + 1 < playerItems.length ? prev + 1 : prev));
         e.preventDefault();
         break;
       case 'ArrowUp':
@@ -152,9 +195,9 @@ export function PlayerPicker({
         e.preventDefault();
         break;
       case 'Enter':
-        if (filteredPlayers[focusedIndex]) {
-          const item = filteredPlayers[focusedIndex];
-          if (item.validation.valid) {
+        if (playerItems[focusedIndex]) {
+          const item = playerItems[focusedIndex];
+          if (item.player && item.validation?.valid) {
             handleSelectPlayer(item.player);
           }
         }
@@ -187,10 +230,12 @@ export function PlayerPicker({
     setIsOpen(false);
   };
 
+  let playerIdxCounter = 0;
+
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className="relative w-full text-left">
       {/* Cascading Filter Controls */}
-      <div className="flex gap-2 mb-2 w-full">
+      <div className="flex gap-2.5 mb-3 w-full">
         {/* Position Select */}
         <select
           value={posFilter}
@@ -198,7 +243,7 @@ export function PlayerPicker({
             const val = e.target.value;
             setPosFilter(val === 'all' ? 'all' : parseInt(val) as any);
           }}
-          className="px-2 py-1.5 bg-[#151824] border border-[#1e2330] rounded-lg text-xs font-semibold text-gray-300 outline-none flex-1 cursor-pointer focus:border-[#38bdf8]"
+          className="px-2.5 py-2 bg-[#151824] border border-[#1e2330] rounded-xl text-xs font-semibold text-gray-300 outline-none flex-1 cursor-pointer focus:border-[#38bdf8] transition-all"
         >
           <option value="all">All Positions</option>
           <option value="1">GK (Goalkeepers)</option>
@@ -211,7 +256,7 @@ export function PlayerPicker({
         <select
           value={clubFilter}
           onChange={(e) => setClubFilter(e.target.value)}
-          className="px-2 py-1.5 bg-[#151824] border border-[#1e2330] rounded-lg text-xs font-semibold text-gray-300 outline-none flex-1 cursor-pointer focus:border-[#38bdf8]"
+          className="px-2.5 py-2 bg-[#151824] border border-[#1e2330] rounded-xl text-xs font-semibold text-gray-300 outline-none flex-1 cursor-pointer focus:border-[#38bdf8] transition-all"
         >
           <option value="all">All Clubs</option>
           {uniqueClubs.map(club => (
@@ -233,7 +278,7 @@ export function PlayerPicker({
           onKeyDown={handleKeyDown}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          className="search-input"
+          className="search-input w-full"
           style={{ paddingLeft: '2.5rem' }}
         />
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -244,36 +289,50 @@ export function PlayerPicker({
       {isOpen && (
         <div 
           ref={dropdownRef} 
-          className="absolute z-50 mt-1 w-full bg-[#0f111a] border border-[#1e2330] rounded-xl shadow-2xl overflow-y-auto custom-scrollbar"
-          style={{ maxHeight: '280px', top: '100%' }}
+          className={`absolute z-50 mt-1.5 w-full bg-[#0f111a] border border-[#1e2330] rounded-xl shadow-2xl overflow-y-auto custom-scrollbar transition-all duration-150 ease-out origin-top ${
+            animateOpen ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-95 pointer-events-none'
+          }`}
+          style={{ maxHeight: '320px', top: '100%', left: 0, right: 0 }}
         >
-          {filteredPlayers.length === 0 ? (
+          {itemsToRender.length === 0 ? (
             <div className="p-4 text-xs text-gray-500 text-center font-medium">No matching players found</div>
           ) : (
-            filteredPlayers.map(({ player, validation }, idx) => {
+            itemsToRender.map((item) => {
+              if (item.type === 'header') {
+                return (
+                  <div key={item.key} className="px-3 py-2 text-[9px] text-gray-500 font-bold uppercase tracking-wider border-b border-[#1e2330]/30 text-left bg-black/20 select-none">
+                    {item.label}
+                  </div>
+                );
+              }
+
+              const player = item.player!;
+              const validation = item.validation!;
               const posAbbr = ['GK', 'DEF', 'MID', 'FWD'][player.element_type - 1];
               const rec = calculatePlayerRatings(player, isPreSeason, 0);
-              const isFocused = idx === focusedIndex;
+              
+              const isFocused = playerIdxCounter === focusedIndex;
+              playerIdxCounter++;
+
               const hasInjury = player.chance_of_playing_next_round < 75;
 
               return (
                 <div
-                  key={player.id}
+                  key={item.key}
                   data-active={isFocused}
                   onClick={() => {
                     if (validation.valid) {
                       handleSelectPlayer(player);
                     }
                   }}
-                  className={`flex items-center justify-between px-3 py-1.5 text-xs border-b border-[#1e2330]/50 transition-all cursor-pointer h-14 group ${
+                  className={`flex items-center justify-between px-3 py-1.5 border-b border-[#1e2330]/30 transition-all cursor-pointer h-[60px] group ${
                     !validation.valid ? 'opacity-40 cursor-not-allowed bg-black/10' : ''
-                  } ${isFocused ? 'bg-[rgba(56,189,248,0.06)]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}
+                  } ${isFocused ? 'bg-[rgba(56,189,248,0.06)] border-l-2 border-l-[#38bdf8]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}
                 >
-                  {/* Left Column: Player Face + Name + info */}
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    {/* Player Photo: 32px diameter, subtle border, opacity transition */}
-                    <div className="relative shrink-0 w-8 h-8 opacity-80 group-hover:opacity-100 transition-opacity">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[9px] border border-[rgba(255,255,255,0.08)] bg-[#151824] ${
+                  {/* LEFT: 36px Photo + Position Badge */}
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <div className="relative w-9 h-9">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[10px] border border-[rgba(255,255,255,0.08)] bg-[#151824] ${
                         player.element_type === 1 ? 'text-warning border-warning/20' :
                         player.element_type === 2 ? 'text-[#38bdf8] border-[#38bdf8]/20' :
                         player.element_type === 3 ? 'text-emerald-400 border-emerald-400/20' : 'text-purple-400 border-purple-400/20'
@@ -284,21 +343,48 @@ export function PlayerPicker({
                         src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.code}.png`}
                         alt=""
                         onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                        className="absolute inset-0 w-8 h-8 rounded-full object-cover border border-[#1e2330] bg-[#151824]"
+                        className="absolute inset-0 w-9 h-9 rounded-full object-cover border border-[#1e2330] bg-[#151824]"
                       />
-                      {hasInjury && (
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#f59e0b] rounded-full border border-[#0f111a] flex items-center justify-center text-[7px] font-bold text-black" title={player.news}>
-                          !
-                        </div>
-                      )}
                     </div>
                     
-                    {/* Metadata Rows */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center text-left">
-                      {/* Row 1: Player Name + Recommendation Badge */}
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white truncate text-xs block">{player.web_name}</span>
-                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 ${
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 ${
+                      player.element_type === 1 ? 'bg-warning/10 text-warning border border-warning/20' :
+                      player.element_type === 2 ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20' :
+                      player.element_type === 3 ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20' : 'bg-purple-400/10 text-purple-400 border border-purple-400/20'
+                    }`}>
+                      {posAbbr}
+                    </span>
+                  </div>
+
+                  {/* CENTER: Player Name + Club • Position • Price */}
+                  <div className="flex-1 min-w-0 text-left px-3">
+                    <span className="font-semibold text-white text-xs block truncate">{player.web_name}</span>
+                    <span className="text-[10px] text-gray-400 block mt-0.5 truncate">
+                      {player.team_name} • {posAbbr} • £{(player.now_cost / 10).toFixed(1)}m
+                    </span>
+                  </div>
+
+                  {/* RIGHT: Projected points + Recommendation badge + news flag */}
+                  <div className="flex items-center gap-3 shrink-0 text-right">
+                    {hasInjury && (
+                      <div className="w-5 h-5 bg-yellow-500/10 border border-yellow-500/30 rounded-full flex items-center justify-center text-[10px] font-bold text-[#f59e0b] shrink-0" title={player.news}>
+                        !
+                      </div>
+                    )}
+
+                    <div className="flex flex-col items-end">
+                      <span className="text-[#10b981] font-bold font-mono text-xs">{player.projected_points.toFixed(1)} EP</span>
+                      
+                      {!validation.valid ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[#ef4444] font-semibold mt-0.5 shrink-0 block">
+                          {validation.reason}
+                        </span>
+                      ) : validation.reason === 'Exceeds Budget' ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 text-[#f59e0b] font-semibold mt-0.5 shrink-0 block">
+                          Exceeds Budget
+                        </span>
+                      ) : (
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5 shrink-0 block ${
                           rec.categoryLabel.includes('Essential') || rec.categoryLabel.includes('Strong')
                             ? 'bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/20'
                             : rec.categoryLabel.includes('Monitor') || rec.categoryLabel.includes('Differential')
@@ -307,34 +393,8 @@ export function PlayerPicker({
                         }`}>
                           {rec.categoryLabel}
                         </span>
-                      </div>
-
-                      {/* Row 2: Club abbreviation • Position • Price • Projected points */}
-                      <div className="text-[10px] text-gray-400 flex items-center gap-1.5 mt-0.5">
-                        <span className="font-bold text-gray-300 uppercase tracking-wider">{player.team_short_name}</span>
-                        <span className="text-gray-600">•</span>
-                        <span>{posAbbr}</span>
-                        <span className="text-gray-600">•</span>
-                        <span className="font-mono text-white">£{(player.now_cost / 10).toFixed(1)}m</span>
-                        <span className="text-gray-600">•</span>
-                        <span className="text-[#10b981] font-bold font-mono">{player.projected_points.toFixed(1)} EP</span>
-                      </div>
+                      )}
                     </div>
-                  </div>
-
-                  {/* Right Column: Selection status indicators */}
-                  <div className="text-right shrink-0">
-                    {!validation.valid && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[#ef4444] font-semibold inline-block">
-                        {validation.reason}
-                      </span>
-                    )}
-
-                    {validation.valid && validation.reason === 'Exceeds Budget' && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 text-[#f59e0b] font-semibold inline-block">
-                        Exceeds Budget
-                      </span>
-                    )}
                   </div>
                 </div>
               );
