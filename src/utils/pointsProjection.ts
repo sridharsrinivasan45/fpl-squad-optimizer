@@ -19,6 +19,12 @@ export interface Player {
   status: string;
   news: string;
   confidence?: number;
+  starts?: number;
+  minutes?: number;
+  isPromoted?: boolean;
+  penalties_order?: number | null;
+  direct_freekicks_order?: number | null;
+  corners_and_indirect_freekicks_order?: number | null;
   breakdown?: {
     baseProjection: number;
     fixtureAdjustment: number; // average FDR adjustment percent (e.g. 10 for +10%)
@@ -313,6 +319,12 @@ export function calculateProjectedPoints(
       status: p.el.status || 'a',
       news: p.el.news || '',
       confidence: confidenceScore,
+      starts: p.el.starts,
+      minutes: p.el.minutes,
+      isPromoted: promotedTeams.has(p.teamId),
+      penalties_order: p.el.penalties_order,
+      direct_freekicks_order: p.el.direct_freekicks_order,
+      corners_and_indirect_freekicks_order: p.el.corners_and_indirect_freekicks_order,
       breakdown: {
         baseProjection: Math.round(p.totalBaseProjection * 100) / 100,
         fixtureAdjustment: fixtureAdjustmentPercent,

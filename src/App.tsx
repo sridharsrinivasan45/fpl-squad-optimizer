@@ -17,6 +17,7 @@ import { calculateProjectedPoints } from './utils/pointsProjection';
 import type { Player } from './utils/pointsProjection';
 import { solveSquad } from './utils/fplSolver';
 import type { SolverResult } from './utils/fplSolver';
+import { calculatePlayerRatings } from './utils/recommendationEngine';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(false);
@@ -28,7 +29,7 @@ function App() {
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
 
   // FPL Decision Dashboard state additions
-  const [mode, setMode] = useState<'optimal' | 'my-team'>('optimal');
+  const [mode, setMode] = useState<'optimal' | 'my-team' | 'scouting'>('optimal');
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [myTeamSquad, setMyTeamSquad] = useState<Player[]>(() => {
     try {
@@ -43,6 +44,10 @@ function App() {
   // Search autocomplete states
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [positionFilter, setPositionFilter] = useState<'all' | 'gk' | 'def' | 'mid' | 'fwd'>('all');
+
+  // Scouting states
+  const [scoutingPlayer, setScoutingPlayer] = useState<Player | null>(null);
+  const [scoutingSearchQuery, setScoutingSearchQuery] = useState<string>('');
 
   // Load database on mount
   const loadInitialData = async (force: boolean = false): Promise<Player[]> => {
@@ -292,6 +297,15 @@ function App() {
                 className={`mode-toggle-btn ${mode === 'my-team' ? 'active' : ''}`}
               >
                 My Team
+              </button>
+              <button
+                onClick={() => {
+                  setMode('scouting');
+                  setError(null);
+                }}
+                className={`mode-toggle-btn ${mode === 'scouting' ? 'active' : ''}`}
+              >
+                Scouting
               </button>
             </div>
             <button 
@@ -590,6 +604,258 @@ function App() {
                   Optimize My Team
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {mode === 'scouting' && !loading && !error && (
+          <div className="dashboard-grid">
+            {/* Left Column: Player Selector & Search */}
+            <div className="grid-left-col">
+              <div className="glass-panel">
+                <h4 className="text-white font-bold text-sm mb-4 tracking-wider text-left">SEARCH PLAYER TO SCOUT</h4>
+                
+                <div className="search-picker-card">
+                  <div className="search-input-wrapper">
+                    <input
+                      type="text"
+                      placeholder="Search players by name or club (min 2 characters)..."
+                      className="search-input"
+                      value={scoutingSearchQuery}
+                      onChange={(e) => setScoutingSearchQuery(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="search-filters-row">
+                    {['all', 'gk', 'def', 'mid', 'fwd'].map((pos) => (
+                      <button
+                        key={pos}
+                        onClick={() => setPositionFilter(pos as any)}
+                        className={`filter-chip ${positionFilter === pos ? 'active' : ''}`}
+                      >
+                        {pos.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+
+                  {scoutingSearchQuery.length >= 2 ? (
+                    <div className="autocomplete-dropdown custom-scrollbar" style={{ maxHeight: '350px' }}>
+                      {(() => {
+                        const q = scoutingSearchQuery.toLowerCase();
+                        const posMap: Record<string, number> = { gk: 1, def: 2, mid: 3, fwd: 4 };
+                        const filtered = allPlayers.filter(p => {
+                          const matchesQuery = p.web_name.toLowerCase().includes(q) || 
+                                               p.team_name.toLowerCase().includes(q) || 
+                                               p.team_short_name.toLowerCase().includes(q);
+                          if (!matchesQuery) return false;
+                          if (positionFilter !== 'all' && p.element_type !== posMap[positionFilter]) return false;
+                          return true;
+                        });
+
+                        if (filtered.length === 0) {
+                          return <div className="p-4 text-xs text-gray-400 text-center">No matching players found</div>;
+                        }
+
+                        return filtered.slice(0, 10).map((player) => {
+                          const posNames = ['GK', 'DEF', 'MID', 'FWD'];
+                          const posName = posNames[player.element_type - 1];
+                          const rec = calculatePlayerRatings(player, isPreSeason, allPlayers[0]?.starts ? 38 : 0);
+                          
+                          return (
+                            <div 
+                              key={player.id} 
+                              className={`dropdown-row cursor-pointer hover:bg-[rgba(255,255,255,0.03)] ${scoutingPlayer?.id === player.id ? 'bg-[rgba(2,195,154,0.05)] border-l-2 border-l-[#02c39a]' : ''}`}
+                              onClick={() => {
+                                setScoutingPlayer(player);
+                                setScoutingSearchQuery('');
+                              }}
+                            >
+                              <div className="player-row-details">
+                                <span className="player-row-name text-left block">{player.web_name}</span>
+                                <span className="player-row-sub text-left block">
+                                  {posName} | {player.team_short_name} | £{(player.now_cost / 10).toFixed(1)}m | {rec.categoryLabel}
+                                </span>
+                              </div>
+                              <span className="text-xs font-bold text-[#02c39a]">{player.projected_points} pts</span>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] border-dashed rounded-xl text-center text-xs text-gray-400">
+                      Type at least 2 characters to search...
+                    </div>
+                  )}
+                </div>
+
+                {/* Popular recommendations list as quick links */}
+                <div className="border-t border-[rgba(255,255,255,0.08)] pt-4 mt-6">
+                  <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-3 text-left">TOP SCOUTING RECOMMENDATIONS</h5>
+                  <div className="flex flex-col gap-2">
+                    {allPlayers
+                      .slice(0, 5)
+                      .map(p => {
+                        const rec = calculatePlayerRatings(p, isPreSeason, 0);
+                        return (
+                          <div 
+                            key={p.id}
+                            onClick={() => setScoutingPlayer(p)}
+                            className="p-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.05)] cursor-pointer flex justify-between items-center text-xs transition-all"
+                          >
+                            <div className="text-left">
+                              <strong className="text-white">{p.web_name}</strong>
+                              <span className="text-gray-400 block text-[10px]">{p.team_name} | £{(p.now_cost/10).toFixed(1)}m</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[#02c39a] font-bold block">{p.projected_points} pts</span>
+                              <span className="text-[10px] text-gray-500">{rec.categoryLabel}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Scouting Details Panel */}
+            <div className="grid-right-col">
+              {scoutingPlayer ? (() => {
+                const rec = calculatePlayerRatings(scoutingPlayer, isPreSeason, 0);
+                const posName = ['GK', 'DEF', 'MID', 'FWD'][scoutingPlayer.element_type - 1];
+                const sentence = `${scoutingPlayer.web_name} is a £${(scoutingPlayer.now_cost / 10).toFixed(1)}m ${posName} from ${scoutingPlayer.team_name} carrying a ${scoutingPlayer.status === 'a' ? 'fit/available' : `flagged (${scoutingPlayer.news})`} status. We project him to return ${scoutingPlayer.projected_points} expected points, giving him a "${rec.categoryLabel}" verdict based on a ${rec.ratings.overallRating}/10 overall score.`;
+
+                return (
+                  <div className="flex flex-col gap-6">
+                    
+                    {/* Main Card */}
+                    <div className="glass-panel text-left">
+                      <div className="flex justify-between items-start gap-4 mb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h2 className="text-2xl font-bold text-white m-0">{scoutingPlayer.web_name}</h2>
+                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-[#02c39a]/10 text-[#02c39a]">
+                              {posName}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-400">{scoutingPlayer.team_name} • £{(scoutingPlayer.now_cost / 10).toFixed(1)}m</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xl font-bold text-[#f7b731] block">
+                            {'★'.repeat(rec.stars)}{'☆'.repeat(5 - rec.stars)}
+                          </span>
+                          <span className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">{rec.categoryLabel}</span>
+                        </div>
+                      </div>
+
+                      {/* Executive Summary */}
+                      <div className="bg-[rgba(2,195,154,0.04)] border border-[rgba(2,195,154,0.15)] rounded-xl p-4 mb-6">
+                        <strong className="text-[#02c39a] text-[10px] uppercase tracking-wider block mb-1">In One Sentence</strong>
+                        <p className="text-gray-300 text-xs m-0 leading-relaxed font-semibold">
+                          {sentence}
+                        </p>
+                      </div>
+
+                      {/* Educational Tags */}
+                      {rec.educationalTags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-6">
+                          {rec.educationalTags.map(tag => (
+                            <span key={tag} className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)] text-gray-300">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Projection breakdown stats */}
+                      <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3">Expected Points Breakdown</h4>
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                          <span className="text-[10px] text-gray-400 block uppercase">Base Projection</span>
+                          <span className="text-lg font-bold text-white">{scoutingPlayer.breakdown?.baseProjection || scoutingPlayer.projected_points} pts</span>
+                        </div>
+                        <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl">
+                          <span className="text-[10px] text-gray-400 block uppercase">FDR Fixture Ease</span>
+                          <span className={`text-lg font-bold ${scoutingPlayer.breakdown && scoutingPlayer.breakdown.fixtureAdjustment >= 0 ? 'text-[#02c39a]' : 'text-[#e74c3c]'}`}>
+                            {scoutingPlayer.breakdown && scoutingPlayer.breakdown.fixtureAdjustment >= 0 ? '+' : ''}
+                            {scoutingPlayer.breakdown?.fixtureAdjustment || 0}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Ratings Grid */}
+                      <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-3">Decision Suitability Ratings</h4>
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                        {Object.entries(rec.ratings).map(([key, val]) => {
+                          const displayLabel = key
+                            .replace('Rating', '')
+                            .replace(/([A-Z])/g, ' $1')
+                            .replace(/^./, str => str.toUpperCase());
+                          
+                          return (
+                            <div key={key} className="flex justify-between items-center text-xs p-2.5 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
+                              <span className="text-gray-400">{displayLabel}</span>
+                              <strong className="text-white font-mono">{val.toFixed(1)} / 10</strong>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Confidence score */}
+                      <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-2">Projection Confidence</h4>
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="relative w-12 h-12 flex items-center justify-center rounded-full bg-[rgba(2,195,154,0.05)] border-2 border-[#02c39a] font-bold text-sm text-[#02c39a]">
+                          {scoutingPlayer.confidence}%
+                        </div>
+                        <div className="text-xs text-gray-400 leading-normal">
+                          Confidence represents prediction reliability based on FPL data. Factors: playing probability (40%), minutes (30%), injury status (20%), and sample size (10%).
+                        </div>
+                      </div>
+
+                      {/* Buy vs Caution bullet lists */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <h5 className="text-[#02c39a] font-bold text-xs uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <span>✓</span> Reasons to Buy
+                          </h5>
+                          <ul className="flex flex-col gap-1.5 list-none p-0 m-0">
+                            {rec.reasonsToBuy.map(r => (
+                              <li key={r} className="text-xs text-gray-300 flex items-start gap-2">
+                                <span className="text-[#02c39a] shrink-0">•</span>
+                                <span>{r}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h5 className="text-[#f7b731] font-bold text-xs uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <span>!</span> Reasons for Caution
+                          </h5>
+                          <ul className="flex flex-col gap-1.5 list-none p-0 m-0">
+                            {rec.reasonsForCaution.map(r => (
+                              <li key={r} className="text-xs text-gray-300 flex items-start gap-2">
+                                <span className="text-[#f7b731] shrink-0">•</span>
+                                <span>{r}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                    </div>
+
+                  </div>
+                );
+              })() : (
+                <div className="glass-panel text-center py-20">
+                  <UserCheck className="w-12 h-12 text-gray-500 mx-auto mb-3 opacity-60" />
+                  <h4 className="text-white font-bold text-sm m-0">No Player Selected</h4>
+                  <p className="text-xs text-gray-400 max-w-xs mx-auto mt-2">
+                    Search and select a player on the left panel to run deep-dive fantasy analytics, star recommendations, and coaching explanations.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
