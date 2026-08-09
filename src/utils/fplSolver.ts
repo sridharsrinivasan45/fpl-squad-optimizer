@@ -26,6 +26,7 @@ export interface SolverInterventions {
   forcedPlayerIds?: number[];
   excludedPlayerIds?: number[];
   customBudgetLimit?: number;
+  formation?: string; // e.g. "3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"
 }
 
 export function solveSquad(
@@ -89,6 +90,21 @@ export function solveSquad(
     ? interventions.customBudgetLimit 
     : budget;
 
+  // Parse formation starting constraints
+  let def_st_constraint: any = { min: 3, max: 5 };
+  let mid_st_constraint: any = { min: 2, max: 5 };
+  let fwd_st_constraint: any = { min: 1, max: 3 };
+
+  if (interventions?.formation) {
+    const parts = interventions.formation.split('-').map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      const [d, m, f] = parts;
+      def_st_constraint = { equal: d };
+      mid_st_constraint = { equal: m };
+      fwd_st_constraint = { equal: f };
+    }
+  }
+
   const model: any = {
     optimize: 'points',
     opType: 'max',
@@ -102,9 +118,9 @@ export function solveSquad(
 
       starter_size: { equal: 11 },
       gk_st: { equal: 1 },
-      def_st: { min: 3, max: 5 },
-      mid_st: { min: 2, max: 5 },
-      fwd_st: { min: 1, max: 3 },
+      def_st: def_st_constraint,
+      mid_st: mid_st_constraint,
+      fwd_st: fwd_st_constraint,
     },
     variables: {},
     ints: {},

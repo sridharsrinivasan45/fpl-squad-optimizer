@@ -11,7 +11,9 @@ import {
   AlertTriangle,
   Flame,
   Calendar,
-  X
+  X,
+  BarChart2,
+  Sparkles
 } from 'lucide-react';
 import { calculateProjectedPoints } from './utils/pointsProjection';
 import type { Player } from './utils/pointsProjection';
@@ -25,6 +27,63 @@ import { PlayerPicker } from './components/PlayerPicker';
 import { calculateChipVerdicts } from './utils/chipDecisionEngine';
 import type { UserChipState } from './utils/chipDecisionEngine';
 
+interface FormationComparison {
+  formation: string;
+  feasible: boolean;
+  projectedPoints: number;
+  difference: number;
+  result: SolverResult | null;
+}
+
+function compareAllFormations(squad: Player[]): FormationComparison[] {
+  const formations = ['3-4-3', '3-5-2', '4-3-3', '4-4-2', '4-5-1', '5-3-2', '5-4-1'];
+  const results = formations.map(form => {
+    const res = solveSquad(squad, 1000, {
+      forcedPlayerIds: squad.map(p => p.id),
+      formation: form
+    });
+    return {
+      formation: form,
+      feasible: res.feasible,
+      projectedPoints: res.feasible ? res.totalProjectedPoints : 0,
+      result: res.feasible ? res : null
+    };
+  });
+  
+  let bestPoints = -1;
+  results.forEach(r => {
+    if (r.feasible && r.projectedPoints > bestPoints) {
+      bestPoints = r.projectedPoints;
+    }
+  });
+
+  return results.map(r => ({
+    formation: r.formation,
+    feasible: r.feasible,
+    projectedPoints: r.projectedPoints,
+    difference: r.feasible && bestPoints > 0 ? Math.round((r.projectedPoints - bestPoints) * 10) / 10 : 0,
+    result: r.result
+  }));
+}
+
+function generateFormationExplanation(_squad: Player[], bestForm: string): string {
+  const [d, m, f] = bestForm.split('-').map(Number);
+  
+  if (m === 5) {
+    return `3-5-2 scores highest because your midfielders have the strongest projected returns, allowing you to maximize starting points from five high-yield midfield assets.`;
+  }
+  if (f === 3) {
+    return `3-4-3 performs better because your forwards have significantly higher expected points than your fifth midfielder, maximizing your front three attacking returns.`;
+  }
+  if (d === 5) {
+    return `${bestForm} sacrifices attacking upside but gains projected defensive returns from five high-projection starting defenders.`;
+  }
+  if (d === 4 && m === 4) {
+    return `4-4-2 offers a balanced, structured starting XI, distributing points evenly across high-security defenders and goal-threat midfielders.`;
+  }
+  return `${bestForm} matches the optimal balance of expected points for your squad's specific strengths across positions.`;
+}
+
 function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
@@ -33,6 +92,11 @@ function App() {
   const [isPreSeason, setIsPreSeason] = useState<boolean>(false);
   const [gameweekName, setGameweekName] = useState<string>('');
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
+  
+  const [draftFormation, setDraftFormation] = useState<string>('Best');
+  const [selectedFormation, setSelectedFormation] = useState<string>('Best');
+  const [myTeamFormations, setMyTeamFormations] = useState<FormationComparison[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
 
   // Chip state additions
   const [bootstrapData, setBootstrapData] = useState<any>(null);
@@ -364,22 +428,49 @@ function App() {
     }
   };
 
+  const handleFormationChange = (form: string) => {
+    setSelectedFormation(form);
+    const comp = myTeamFormations.find(c => c.formation === form);
+    if (comp && comp.feasible && comp.result) {
+      setMyTeamResult(comp.result);
+      const explanation = generateOptimizationExplanation(allPlayers, comp.result, isPreSeason);
+      setMyTeamExplanation(explanation);
+    }
+  };
+
   const optimizeMyTeam = async () => {
     if (myTeamSquad.length !== 15) return;
     setLoading(true);
     setError(null);
-    setLoadingMessage('Optimizing Starting XI & Bench Order for My Team...');
+    setLoadingMessage('Optimizing Starting XI & Formations for My Team...');
 
     try {
       await new Promise(resolve => setTimeout(resolve, 600));
-      const solverResult = solveSquad(myTeamSquad);
-      if (!solverResult.feasible) {
-        throw new Error('Could not optimize Starting XI. Please make sure the selected 15 players satisfy positions: 2 GK, 5 DEF, 5 MID, 3 FWD.');
+      const comparisons = compareAllFormations(myTeamSquad);
+      setMyTeamFormations(comparisons);
+
+      const feasibleComps = comparisons.filter(c => c.feasible);
+      if (feasibleComps.length === 0) {
+        throw new Error('Your drafted 15-player squad is invalid or cannot satisfy any valid FPL formation.');
       }
-      setMyTeamResult(solverResult);
+
+      const best = feasibleComps.reduce((prev, curr) => (curr.projectedPoints > prev.projectedPoints) ? curr : prev);
       
+      let targetForm = draftFormation;
+      if (targetForm === 'Best') {
+        targetForm = best.formation;
+      }
+
+      const selectedComp = comparisons.find(c => c.formation === targetForm) || best;
+      if (!selectedComp.feasible) {
+        throw new Error(`The selected formation ${targetForm} is not feasible with your current squad.`);
+      }
+
+      setSelectedFormation(selectedComp.formation);
+      setMyTeamResult(selectedComp.result);
+
       setLoadingMessage('Running counterfactual optimizations for My Team...');
-      const explanation = generateOptimizationExplanation(allPlayers, solverResult, isPreSeason);
+      const explanation = generateOptimizationExplanation(allPlayers, selectedComp.result!, isPreSeason);
       setMyTeamExplanation(explanation);
     } catch (err: any) {
       setError({
@@ -688,8 +779,91 @@ function App() {
   const benchMID = midsInSquad[4] || null;
   const benchFWD = fwdsInSquad[2] || null;
 
+  const renderCompareModal = () => {
+    if (!showCompareModal || myTeamFormations.length === 0) return null;
+    
+    const feasibleComps = myTeamFormations.filter(c => c.feasible);
+    const bestComp = feasibleComps.length > 0
+      ? feasibleComps.reduce((prev, curr) => (curr.projectedPoints > prev.projectedPoints) ? curr : prev)
+      : null;
+
+    return (
+      <div 
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" 
+        style={{ zIndex: 1000 }}
+        onClick={() => setShowCompareModal(false)}
+      >
+        <div 
+          className="glass-panel text-left w-full max-w-md p-6 relative animate-scale-in"
+          style={{ background: '#121520' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button 
+            onClick={() => setShowCompareModal(false)} 
+            className="absolute top-4 right-4 bg-transparent border-0 text-gray-400 hover:text-white cursor-pointer font-bold text-lg"
+          >
+            ×
+          </button>
+          
+          <h3 className="text-white font-bold text-base mb-2 uppercase tracking-wider">Compare Formations</h3>
+          <p className="text-xs text-gray-400 mb-6">
+            Compare the projected starting XI points for all formations feasible with your current 15-player squad.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="grid grid-cols-3 text-[10px] text-gray-500 font-bold uppercase tracking-wider border-b border-[rgba(255,255,255,0.06)] pb-2 px-2">
+              <div>Formation</div>
+              <div className="text-right">Points</div>
+              <div className="text-right">Difference</div>
+            </div>
+            
+            {myTeamFormations.map(c => {
+              const isBest = bestComp && c.formation === bestComp.formation;
+              const isCurrent = c.formation === selectedFormation;
+              
+              return (
+                <div 
+                  key={c.formation} 
+                  className={`grid grid-cols-3 items-center text-xs py-2 px-2 rounded transition-all ${
+                    !c.feasible ? 'opacity-40' : 'hover:bg-white/[0.02]'
+                  } ${isCurrent ? 'bg-[#38bdf8]/10 border border-[#38bdf8]/20' : ''}`}
+                >
+                  <div className="font-semibold text-white flex items-center gap-1.5">
+                    {c.formation}
+                    {isBest && <span className="text-[8px] bg-[#10b981]/20 text-[#10b981] px-1 py-0.5 rounded font-bold uppercase">Best</span>}
+                  </div>
+                  <div className="text-right font-mono font-bold text-white">
+                    {c.feasible ? `${c.projectedPoints.toFixed(1)}` : 'N/A'}
+                  </div>
+                  <div className={`text-right font-mono font-bold ${
+                    !c.feasible ? 'text-gray-500' : c.difference === 0 ? 'text-[#10b981]' : 'text-red-400'
+                  }`}>
+                    {c.feasible ? (c.difference >= 0 ? `+${c.difference.toFixed(1)}` : `${c.difference.toFixed(1)}`) : 'Infeasible'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          {bestComp && (
+            <div className="mt-6 p-3 rounded bg-white/[0.02] border border-[rgba(255,255,255,0.04)] text-xs text-gray-300">
+              <div className="font-bold text-[#10b981] mb-1 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Best formation for this squad: {bestComp.formation}
+              </div>
+              <div className="leading-relaxed mt-1">
+                {generateFormationExplanation(myTeamSquad, bestComp.formation)}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen pb-12">
+      {renderCompareModal()}
       {/* Top Navigation / Header */}
       <header className="app-header">
         <div className="header-container">
@@ -1127,6 +1301,32 @@ function App() {
                     )}
                   </div>
                 </div>
+
+                {isMyTeamValid && (
+                  <div className="mt-6 border-t border-[rgba(255,255,255,0.06)] pt-4 text-left">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Starting Formation</span>
+                      <span className="text-[9px] text-gray-500 font-semibold font-mono">11 STARTERS</span>
+                    </div>
+                    <select
+                      value={draftFormation}
+                      onChange={(e) => setDraftFormation(e.target.value)}
+                      className="w-full bg-[#151824] border border-[rgba(255,255,255,0.08)] text-xs text-white rounded px-3 py-2 focus:outline-none focus:border-[#38bdf8] font-semibold cursor-pointer"
+                    >
+                      <option value="Best">Best Recommended (Autodetect)</option>
+                      <option value="3-4-3">3-4-3</option>
+                      <option value="3-5-2">3-5-2</option>
+                      <option value="4-3-3">4-3-3</option>
+                      <option value="4-4-2">4-4-2</option>
+                      <option value="4-5-1">4-5-1</option>
+                      <option value="5-3-2">5-3-2</option>
+                      <option value="5-4-1">5-4-1</option>
+                    </select>
+                    <p className="text-[10px] text-gray-400 mt-2.5 leading-relaxed">
+                      Your formation determines how many defenders, midfielders and forwards can start. The optimizer then finds the highest-projected XI that fits that formation.
+                    </p>
+                  </div>
+                )}
 
                 <button
                   disabled={!isMyTeamValid}
@@ -1921,6 +2121,12 @@ function App() {
                 <p className="text-xs text-gray-400 leading-relaxed m-0" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
                   The ILP solver selected {activeResult.starters.length} starters maximizing total points under a £100.0m limit. Captain choice is <strong className="text-white">{activeResult.captain?.web_name}</strong> due to their points expectation ({activeResult.captain?.projected_points} pts) and playing probability.
                 </p>
+                {mode === 'my-team' && selectedFormation && (
+                  <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)] text-xs text-gray-400">
+                    <strong className="text-[#38bdf8] uppercase tracking-wider text-[10px] block mb-1 font-mono">Formation Strategy:</strong>
+                    {generateFormationExplanation(myTeamSquad, selectedFormation)}
+                  </div>
+                )}
               </div>
               
               {/* Squad Header */}
@@ -1932,19 +2138,53 @@ function App() {
                     <span>Selected for {gameweekName}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   {mode === 'my-team' && (
                     <button
-                      onClick={() => setMyTeamResult(null)}
+                      onClick={() => {
+                        setMyTeamResult(null);
+                        setSelectedFormation('Best');
+                      }}
                       className="btn-outline"
                       style={{ padding: '4px 12px', fontSize: '12px' }}
                     >
                       Edit Squad
                     </button>
                   )}
-                  <div className="formation-badge">
-                    {defs.length}-{mids.length}-{fwds.length} Formation
-                  </div>
+                  
+                  {mode === 'my-team' && myTeamFormations.length > 0 ? (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider font-mono">Layout:</span>
+                        <select
+                          value={selectedFormation}
+                          onChange={(e) => handleFormationChange(e.target.value)}
+                          className="bg-[#151824] border border-[rgba(255,255,255,0.08)] text-xs text-white rounded px-2.5 py-1 focus:outline-none focus:border-[#38bdf8] font-semibold cursor-pointer"
+                        >
+                          {myTeamFormations.map(c => {
+                            const isBest = c.formation === myTeamFormations.reduce((prev, curr) => (curr.projectedPoints > prev.projectedPoints) ? curr : prev).formation;
+                            return (
+                              <option key={c.formation} value={c.formation} disabled={!c.feasible}>
+                                {c.formation} {isBest ? '✓ Rec' : ''} {!c.feasible ? '(Infeasible)' : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                      
+                      <button
+                        onClick={() => setShowCompareModal(true)}
+                        className="text-[#38bdf8] hover:text-[#0ea5e9] text-xs font-bold transition-all bg-transparent border-0 p-0 cursor-pointer flex items-center gap-1"
+                      >
+                        <BarChart2 className="w-3.5 h-3.5" />
+                        Compare
+                      </button>
+                    </>
+                  ) : (
+                    <div className="formation-badge">
+                      {defs.length}-{mids.length}-{fwds.length} Formation
+                    </div>
+                  )}
                 </div>
               </div>
 
