@@ -122,4 +122,21 @@ const simulated = simulateDecision(players, solverResult, {
 console.assert(simulated.feasible, 'Simulated forced squad must be feasible');
 console.log('✅ Test 6 Passed: Simulator solver run');
 
+// Test 7: Doubtful Player Playing Probability Calibration (Single Discount)
+const doubtfulElements = [
+  ...mockElements,
+  { id: 999, web_name: 'DoubtfulPlayer', team: 1, element_type: 3, now_cost: 60, form: '4.0', total_points: 100, chance_of_playing_next_round: 75, selected_by_percent: '5.0', status: 'd', news: 'Hamstring injury', starts: 15, minutes: 1350 }
+];
+const doubtfulProj = calculateProjectedPoints(doubtfulElements, mockTeams, mockFixtures, 1);
+const doubtfulPlayer = doubtfulProj.players.find(p => p.id === 999);
+if (!doubtfulPlayer) {
+  throw new Error('Doubtful player not projected');
+}
+const finalProbPercent = doubtfulPlayer.breakdown?.playingProbabilityAdjustment;
+console.assert(finalProbPercent === 75, `Expected playing probability to be 75%, but got ${finalProbPercent}%`);
+if (finalProbPercent !== 75) {
+  throw new Error(`Doubtful player playing probability calibration failed. Expected 75, got ${finalProbPercent}`);
+}
+console.log('✅ Test 7 Passed: Doubtful player playing probability (Single Discount)');
+
 console.log('All FPL Data Integrity Tests PASSED successfully!');

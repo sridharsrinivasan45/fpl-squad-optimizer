@@ -90,9 +90,9 @@ export function calculateProjectedPoints(
     const form = parseFloat(el.form) || 0;
     const ppg = parseFloat(el.points_per_game) || 0;
 
-    // Transition weight w: blends from 1.0 (pre-season) to 0.0 (5+ matches played)
+    // Transition weight w: blends from 1.0 (pre-season) to a minimum floor of 0.30 (5+ matches played)
     const matchesAvailable = matchesAvailableMap.get(teamId) || 0;
-    const w = Math.max(0, 1 - (matchesAvailable / 5));
+    const w = Math.max(0.30, 1 - (matchesAvailable / 5));
 
     // Blended baseline points:
     // If a player has no historical points_per_game (e.g. promoted/new), estimate baseline using FPL price
@@ -128,8 +128,8 @@ export function calculateProjectedPoints(
       const fdrPreSeasonMap: Record<number, number> = { 1: 1.20, 2: 1.10, 3: 1.00, 4: 0.90, 5: 0.80 };
       const fdrPreSeason = fdrPreSeasonMap[difficulty] || 1.00;
       
-      // In-season: (6 - FDR) / 3.5
-      const fdrInSeason = (6 - difficulty) / 3.5;
+      // In-season: 1.0 - (Difficulty - 3) * 0.15
+      const fdrInSeason = 1.0 - (difficulty - 3) * 0.15;
       
       // Blended FDR multiplier
       const fdrMultiplier = w * fdrPreSeason + (1 - w) * fdrInSeason;
@@ -264,14 +264,17 @@ export function calculateProjectedPoints(
       prob = gkOverrides.get(p.el.id)!;
     }
 
-    // STEP 4: Status adjustments
-    let statusAdjustment = 1.0;
-    if (p.el.status === 'a') statusAdjustment = 1.0;
-    else if (p.el.status === 'd') statusAdjustment = 0.75;
-    else if (p.el.status === 'i') statusAdjustment = 0.30;
-    else if (p.el.status === 's') statusAdjustment = 0.00;
+    // STEP 4: Status adjustments (only apply fallback if chance_of_playing_next_round was null/undefined)
+    const hasExplicitChance = p.el.chance_of_playing_next_round !== null && p.el.chance_of_playing_next_round !== undefined;
+    if (!hasExplicitChance) {
+      let statusAdjustment = 1.0;
+      if (p.el.status === 'a') statusAdjustment = 1.0;
+      else if (p.el.status === 'd') statusAdjustment = 0.75;
+      else if (p.el.status === 'i') statusAdjustment = 0.30;
+      else if (p.el.status === 's') statusAdjustment = 0.00;
 
-    prob *= statusAdjustment;
+      prob *= statusAdjustment;
+    }
     prob = Math.max(0, Math.min(1.0, prob));
 
     // STEP 5: Late substitute penalty
