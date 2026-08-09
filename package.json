@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test-integrity": "npx tsx test-integrity.ts"
+    "test-integrity": "npx tsx test-integrity.ts && npx tsx test-chips.ts"
   },
   "dependencies": {
     "express": "^5.2.1",

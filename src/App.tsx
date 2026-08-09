@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   AlertCircle, 
   HelpCircle, 
@@ -22,6 +22,8 @@ import { generateOptimizationExplanation } from './utils/explainabilityEngine';
 import type { OptimizationExplanation } from './utils/explainabilityEngine';
 import { comparePlayers, simulateDecision } from './utils/decisionSimulator';
 import { PlayerPicker } from './components/PlayerPicker';
+import { calculateChipVerdicts } from './utils/chipDecisionEngine';
+import type { UserChipState } from './utils/chipDecisionEngine';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(false);
@@ -31,6 +33,34 @@ function App() {
   const [isPreSeason, setIsPreSeason] = useState<boolean>(false);
   const [gameweekName, setGameweekName] = useState<string>('');
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
+
+  // Chip state additions
+  const [bootstrapData, setBootstrapData] = useState<any>(null);
+  const [fixturesData, setFixturesData] = useState<any[]>([]);
+  const [currentGW, setCurrentGW] = useState<number>(1);
+  const [chipState, setChipState] = useState<UserChipState>(() => {
+    try {
+      const saved = localStorage.getItem('fpl_optimizer_chip_state');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      wildcard_1: true,
+      wildcard_2: true,
+      freehit: true,
+      triplecaptain: true,
+      benchboost: true
+    };
+  });
+
+  const updateChipState = (key: keyof UserChipState, val: boolean) => {
+    setChipState(prev => {
+      const updated = { ...prev, [key]: val };
+      try {
+        localStorage.setItem('fpl_optimizer_chip_state', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
 
   // FPL Decision Dashboard state additions
   const [mode, setMode] = useState<'optimal' | 'my-team' | 'scouting' | 'comparison' | 'simulation'>('optimal');
@@ -220,6 +250,9 @@ function App() {
       setAllPlayers(projection.players);
       setDataStatus(isCached ? 'cached' : 'fresh');
       setLastUpdated(new Date(timestamp).toLocaleTimeString());
+      setBootstrapData(bootstrapData);
+      setFixturesData(fixturesData);
+      setCurrentGW(gwId);
 
       // Sync and normalize the drafted squad with the fresh player data
       setMyTeamSquad((prevSquad) => {
@@ -396,6 +429,164 @@ function App() {
   const activeResult = mode === 'optimal' ? result : myTeamResult;
   const activeExplanation = mode === 'optimal' ? optExplanation : myTeamExplanation;
   const [activeExpPlayerId, setActiveExpPlayerId] = useState<number | null>(null);
+
+  // Calculate Chip Verdicts dynamically
+  const chipVerdicts = useMemo(() => {
+    if (!bootstrapData || !fixturesData || fixturesData.length === 0 || myTeamSquad.length === 0) {
+      return [];
+    }
+    return calculateChipVerdicts(
+      allPlayers,
+      bootstrapData,
+      fixturesData,
+      currentGW,
+      myTeamSquad,
+      chipState
+    );
+  }, [allPlayers, bootstrapData, fixturesData, currentGW, myTeamSquad, chipState]);
+
+  const renderChipAdvisor = () => {
+    if (myTeamSquad.length < 15) {
+      return (
+        <div className="glass-panel text-left animate-fade-in" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
+              <h4 className="text-white font-bold text-xs uppercase tracking-wider m-0">Chip Advisor</h4>
+            </div>
+            <span className="text-[10px] text-gray-500 font-mono">OFFLINE</span>
+          </div>
+          <div className="p-6 text-center text-xs text-gray-500 italic border border-dashed border-[rgba(255,255,255,0.06)] rounded-xl">
+            Please draft a full 15-player squad to enable the personalized Chip Advisor decision engine.
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="glass-panel text-left animate-fade-in" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span>
+            <h4 className="text-white font-bold text-xs uppercase tracking-wider m-0">Chip Advisor</h4>
+          </div>
+          <span className="text-[10px] text-gray-500 font-mono">DECISION SUPPORT SYSTEM</span>
+        </div>
+
+        {/* Chip Availability Toggles */}
+        <div className="bg-[#151824] p-3 rounded-lg border border-[rgba(255,255,255,0.04)] mb-4">
+          <span className="text-[10px] text-gray-400 block uppercase tracking-wider font-semibold mb-2">My Available Chips</span>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            {currentGW <= 19 && (
+              <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={chipState.wildcard_1}
+                  onChange={(e) => updateChipState('wildcard_1', e.target.checked)}
+                  className="rounded border-gray-600 bg-gray-800 text-[#02c39a] focus:ring-[#02c39a]"
+                />
+                <span>Wildcard (1st Half)</span>
+              </label>
+            )}
+            {currentGW >= 20 && (
+              <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={chipState.wildcard_2}
+                  onChange={(e) => updateChipState('wildcard_2', e.target.checked)}
+                  className="rounded border-gray-600 bg-gray-800 text-[#02c39a] focus:ring-[#02c39a]"
+                />
+                <span>Wildcard (2nd Half)</span>
+              </label>
+            )}
+            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={chipState.freehit}
+                onChange={(e) => updateChipState('freehit', e.target.checked)}
+                className="rounded border-gray-600 bg-gray-800 text-[#02c39a] focus:ring-[#02c39a]"
+              />
+              <span>Free Hit</span>
+            </label>
+            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={chipState.triplecaptain}
+                onChange={(e) => updateChipState('triplecaptain', e.target.checked)}
+                className="rounded border-gray-600 bg-gray-800 text-[#02c39a] focus:ring-[#02c39a]"
+              />
+              <span>Triple Captain</span>
+            </label>
+            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={chipState.benchboost}
+                onChange={(e) => updateChipState('benchboost', e.target.checked)}
+                className="rounded border-gray-600 bg-gray-800 text-[#02c39a] focus:ring-[#02c39a]"
+              />
+              <span>Bench Boost</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {chipVerdicts.map((verdict) => {
+            const isUse = verdict.verdict === 'USE NOW';
+            const nameMap = {
+              wildcard: 'Wildcard',
+              freehit: 'Free Hit',
+              triplecaptain: 'Triple Captain',
+              benchboost: 'Bench Boost'
+            };
+            const chipName = nameMap[verdict.chipCode] || verdict.chipCode;
+
+            return (
+              <div key={verdict.chipCode} className="border border-[rgba(255,255,255,0.06)] rounded-xl p-3 bg-[rgba(255,255,255,0.02)]">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${isUse ? 'bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/25' : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'}`}>
+                      {chipName}
+                    </span>
+                    <span className={`text-xs font-bold ${isUse ? 'text-[#10b981]' : 'text-gray-400'}`}>
+                      {verdict.verdict}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                    <span>Advantage: <strong className="text-white font-mono">{verdict.advantage > 0 ? '+' : ''}{verdict.advantage.toFixed(1)}</strong></span>
+                    <span className="text-gray-600">|</span>
+                    <span className={`font-bold ${verdict.confidence === 'High' ? 'text-[#10b981]' : verdict.confidence === 'Medium' ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}>
+                      Certainty: {verdict.confidence}
+                    </span>
+                  </div>
+                </div>
+                
+                <p className="text-[11px] text-gray-300 m-0 mt-1 leading-relaxed text-left">
+                  {verdict.reason}
+                </p>
+                
+                <details className="mt-2 group">
+                  <summary className="text-[9px] text-gray-400 hover:text-white cursor-pointer select-none font-semibold flex items-center gap-1">
+                    <span>💡 Advanced Details & Assumptions</span>
+                  </summary>
+                  <div className="mt-1.5 text-[10px] text-gray-500 space-y-1 pl-2.5 border-l border-[rgba(255,255,255,0.06)] leading-relaxed text-left">
+                    <p className="m-0"><strong className="text-gray-400">What could change this:</strong> {verdict.sensitivity}</p>
+                    <p className="m-0"><strong className="text-gray-400">Current expected value:</strong> +{verdict.currentValue.toFixed(1)} pts.</p>
+                    <p className="m-0"><strong className="text-gray-400">Best identified opportunity:</strong> GW{verdict.bestFutureGW} (+{verdict.bestFutureValue.toFixed(1)} pts).</p>
+                    {verdict.chipCode === 'wildcard' && (
+                      <p className="m-0"><strong className="text-gray-400">Modelling Assumption:</strong> Evaluated using a 5-week rolling horizon. Projection Confidence Weights [1.0, 0.9, 0.8, 0.7, 0.6] applied to future weeks.</p>
+                    )}
+                    {verdict.chipCode === 'triplecaptain' && (
+                      <p className="m-0"><strong className="text-gray-400">Safety Guard:</strong> Playing probability is only applied once at the fixture level (no double-counting).</p>
+                    )}
+                  </div>
+                </details>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   // Group starters by position
   const gks = activeResult?.starters.filter(p => p.element_type === 1) || [];
@@ -790,6 +981,9 @@ function App() {
                   Optimize My Team
                 </button>
               </div>
+              
+              {/* Chip Advisor Panel */}
+              {renderChipAdvisor()}
             </div>
           </div>
         )}
@@ -1802,6 +1996,9 @@ function App() {
                   </div>
                 </div>
               </div>
+              
+              {/* Chip Advisor Panel */}
+              {mode === 'my-team' && renderChipAdvisor()}
 
               {/* Roster Table List */}
               <div className="glass-panel">
