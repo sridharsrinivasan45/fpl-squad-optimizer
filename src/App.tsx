@@ -129,7 +129,7 @@ function App() {
       let isCached = false;
       let timestamp = Date.now();
 
-      // Check cache first
+      // Check cache first (self-healing mechanism for invalid/outdated schema)
       if (!force) {
         try {
           const cachedRaw = localStorage.getItem('fpl_optimizer_api_cache');
@@ -137,16 +137,25 @@ function App() {
             const cached = JSON.parse(cachedRaw);
             const age = Date.now() - cached.timestamp;
             // 10 minutes cache expiry limit
-            if (age < 10 * 60 * 1000) {
-              bootstrapData = cached.bootstrapData;
-              fixturesData = cached.fixturesData;
-              timestamp = cached.timestamp;
-              isCached = true;
-              console.log(`[Cache Hit] Reusing cached FPL data. Age: ${Math.round(age / 1000)}s`);
+            if (age < 10 * 60 * 1000 && cached.bootstrapData && cached.fixturesData) {
+              // Sanity check cached objects
+              if (cached.bootstrapData.elements && cached.bootstrapData.teams && Array.isArray(cached.fixturesData)) {
+                bootstrapData = cached.bootstrapData;
+                fixturesData = cached.fixturesData;
+                timestamp = cached.timestamp;
+                isCached = true;
+                console.log(`[Cache Hit] Reusing cached FPL data. Age: ${Math.round(age / 1000)}s`);
+              } else {
+                console.warn('Cached data failed validation checks. Invalidating cache.');
+                localStorage.removeItem('fpl_optimizer_api_cache');
+              }
             }
           }
         } catch (cacheErr) {
           console.warn('Failed to parse FPL cache:', cacheErr);
+          try {
+            localStorage.removeItem('fpl_optimizer_api_cache');
+          } catch (e) {}
         }
       }
 
@@ -165,13 +174,17 @@ function App() {
         }
         fixturesData = await fixturesRes.json();
 
-        // Save to cache
+        // Save to cache with QuotaExceededError protection
         timestamp = Date.now();
-        localStorage.setItem('fpl_optimizer_api_cache', JSON.stringify({
-          timestamp,
-          bootstrapData,
-          fixturesData
-        }));
+        try {
+          localStorage.setItem('fpl_optimizer_api_cache', JSON.stringify({
+            timestamp,
+            bootstrapData,
+            fixturesData
+          }));
+        } catch (cacheWriteErr) {
+          console.warn('Failed to write FPL data to localStorage cache (possibly quota exceeded):', cacheWriteErr);
+        }
         isCached = false;
         console.log('[Cache Miss] Fetched fresh FPL data.');
       }
@@ -222,7 +235,11 @@ function App() {
           }
           return saved;
         });
-        localStorage.setItem('fpl_optimizer_my_team', JSON.stringify(updated));
+        try {
+          localStorage.setItem('fpl_optimizer_my_team', JSON.stringify(updated));
+        } catch (writeErr) {
+          console.warn('Failed to write My Team to localStorage:', writeErr);
+        }
         return updated;
       });
 
@@ -356,14 +373,22 @@ function App() {
 
     const newSquad = [...myTeamSquad, player];
     setMyTeamSquad(newSquad);
-    localStorage.setItem('fpl_optimizer_my_team', JSON.stringify(newSquad));
+    try {
+      localStorage.setItem('fpl_optimizer_my_team', JSON.stringify(newSquad));
+    } catch (e) {
+      console.warn('Failed to write My Team to localStorage:', e);
+    }
     setMyTeamResult(null);
   };
 
   const removePlayerFromMyTeam = (playerId: number) => {
     const newSquad = myTeamSquad.filter(p => p.id !== playerId);
     setMyTeamSquad(newSquad);
-    localStorage.setItem('fpl_optimizer_my_team', JSON.stringify(newSquad));
+    try {
+      localStorage.setItem('fpl_optimizer_my_team', JSON.stringify(newSquad));
+    } catch (e) {
+      console.warn('Failed to write My Team to localStorage:', e);
+    }
     setMyTeamResult(null);
   };
 
