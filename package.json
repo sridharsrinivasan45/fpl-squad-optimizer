@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test-integrity": "npx tsx test-integrity.ts"
   },
   "dependencies": {
     "express": "^5.2.1",

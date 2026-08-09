@@ -67,6 +67,52 @@ function App() {
   const [modalTab, setModalTab] = useState<'guide' | 'academy'>('guide');
   const [pickerActive, setPickerActive] = useState<boolean>(false);
 
+  // Data Integrity & Cache States
+  const [dataStatus, setDataStatus] = useState<'fresh' | 'cached' | 'unavailable'>('unavailable');
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [dataWarnings, setDataWarnings] = useState<string[]>([]);
+
+  // Sanity check player-team data mappings
+  const validateFPLData = (players: Player[], teams: any[]): { valid: boolean; warnings: string[] } => {
+    const warnings: string[] = [];
+    const teamIds = new Set(teams.map((t: any) => t.id));
+    
+    teams.forEach((team: any) => {
+      if (!team.id || isNaN(team.id)) {
+        warnings.push(`Invalid Team entry detected: Missing or non-numeric ID.`);
+      }
+      if (!team.name || typeof team.name !== 'string') {
+        warnings.push(`Team ID ${team.id} has an invalid or missing name.`);
+      }
+      if (!team.short_name || typeof team.short_name !== 'string') {
+        warnings.push(`Team "${team.name}" has an invalid or missing short name.`);
+      }
+    });
+
+    players.forEach((player: Player) => {
+      if (!player.team || !teamIds.has(player.team)) {
+        warnings.push(`Player "${player.web_name}" (ID: ${player.id}) is mapped to an invalid Team ID: "${player.team}".`);
+      }
+      if (!player.team_name || player.team_name === 'Unknown') {
+        warnings.push(`Player "${player.web_name}" is missing a resolved team name.`);
+      }
+      if (!player.team_short_name || player.team_short_name === 'UNK') {
+        warnings.push(`Player "${player.web_name}" is missing a resolved team abbreviation.`);
+      }
+      if (player.now_cost <= 0) {
+        warnings.push(`Player "${player.web_name}" has an invalid price: £${(player.now_cost/10).toFixed(1)}m.`);
+      }
+      if (player.element_type < 1 || player.element_type > 4) {
+        warnings.push(`Player "${player.web_name}" has an invalid position ID: ${player.element_type}.`);
+      }
+    });
+
+    return {
+      valid: warnings.length === 0,
+      warnings
+    };
+  };
+
   // Load database on mount
   const loadInitialData = async (force: boolean = false): Promise<Player[]> => {
     if (allPlayers.length > 0 && !force) {
@@ -75,25 +121,64 @@ function App() {
 
     setLoading(true);
     setError(null);
-    setLoadingMessage('Fetching live player database from FPL API...');
+    setLoadingMessage('Resolving FPL player data cache...');
 
     try {
-      const bootstrapRes = await fetch('/api/bootstrap-static');
-      if (!bootstrapRes.ok) {
-        throw new Error(`bootstrap-static fetch failed with HTTP ${bootstrapRes.status}: ${bootstrapRes.statusText}`);
+      let bootstrapData: any = null;
+      let fixturesData: any = null;
+      let isCached = false;
+      let timestamp = Date.now();
+
+      // Check cache first
+      if (!force) {
+        try {
+          const cachedRaw = localStorage.getItem('fpl_optimizer_api_cache');
+          if (cachedRaw) {
+            const cached = JSON.parse(cachedRaw);
+            const age = Date.now() - cached.timestamp;
+            // 10 minutes cache expiry limit
+            if (age < 10 * 60 * 1000) {
+              bootstrapData = cached.bootstrapData;
+              fixturesData = cached.fixturesData;
+              timestamp = cached.timestamp;
+              isCached = true;
+              console.log(`[Cache Hit] Reusing cached FPL data. Age: ${Math.round(age / 1000)}s`);
+            }
+          }
+        } catch (cacheErr) {
+          console.warn('Failed to parse FPL cache:', cacheErr);
+        }
       }
-      const bootstrapData = await bootstrapRes.json();
+
+      if (!bootstrapData || !fixturesData) {
+        setLoadingMessage('Fetching live player database from FPL API...');
+        const bootstrapRes = await fetch('/api/bootstrap-static');
+        if (!bootstrapRes.ok) {
+          throw new Error(`bootstrap-static fetch failed with HTTP ${bootstrapRes.status}: ${bootstrapRes.statusText}`);
+        }
+        bootstrapData = await bootstrapRes.json();
+
+        setLoadingMessage('Fetching current fixture schedules & difficulty ratings...');
+        const fixturesRes = await fetch('/api/fixtures');
+        if (!fixturesRes.ok) {
+          throw new Error(`fixtures fetch failed with HTTP ${fixturesRes.status}: ${fixturesRes.statusText}`);
+        }
+        fixturesData = await fixturesRes.json();
+
+        // Save to cache
+        timestamp = Date.now();
+        localStorage.setItem('fpl_optimizer_api_cache', JSON.stringify({
+          timestamp,
+          bootstrapData,
+          fixturesData
+        }));
+        isCached = false;
+        console.log('[Cache Miss] Fetched fresh FPL data.');
+      }
 
       if (!bootstrapData.elements || !bootstrapData.teams || !bootstrapData.events) {
-        throw new Error('Incomplete data received from FPL bootstrap-static. Missing elements or teams.');
+        throw new Error('Incomplete data received from FPL bootstrap-static. Missing elements, teams, or events.');
       }
-
-      setLoadingMessage('Fetching current fixture schedules & difficulty ratings...');
-      const fixturesRes = await fetch('/api/fixtures');
-      if (!fixturesRes.ok) {
-        throw new Error(`fixtures fetch failed with HTTP ${fixturesRes.status}: ${fixturesRes.statusText}`);
-      }
-      const fixturesData = await fixturesRes.json();
 
       if (!Array.isArray(fixturesData)) {
         throw new Error('Incomplete fixtures data received. Response is not an array.');
@@ -114,14 +199,40 @@ function App() {
         gwId
       );
 
+      // Perform FPL Data Integrity checks
+      const validation = validateFPLData(projection.players, bootstrapData.teams);
+      setDataWarnings(validation.warnings);
+
       setIsPreSeason(projection.isPreSeason);
       setAllPlayers(projection.players);
+      setDataStatus(isCached ? 'cached' : 'fresh');
+      setLastUpdated(new Date(timestamp).toLocaleTimeString());
+
+      // Sync and normalize the drafted squad with the fresh player data
+      setMyTeamSquad((prevSquad) => {
+        if (!prevSquad || prevSquad.length === 0) return [];
+        const updated = prevSquad.map(saved => {
+          const fresh = projection.players.find(p => p.id === saved.id);
+          if (fresh) {
+            // Transfer detection
+            if (saved.team !== fresh.team) {
+              console.log(`%c[FPL Transfer Audit] Player team changed: ${fresh.web_name}. Previous: ${saved.team_name} (ID: ${saved.team}), Current: ${fresh.team_name} (ID: ${fresh.team})`, 'color: #38bdf8; font-weight: bold;');
+            }
+            return fresh;
+          }
+          return saved;
+        });
+        localStorage.setItem('fpl_optimizer_my_team', JSON.stringify(updated));
+        return updated;
+      });
+
       return projection.players;
     } catch (err: any) {
       console.error(err);
+      setDataStatus('unavailable');
       setError({
-        message: err.message || 'An unexpected error occurred during execution.',
-        action: 'Please ensure that your Express backend is running (npm run server) and that you are connected to the internet. If the FPL server is throttled or experiencing downtime, please try again in a few minutes.'
+        message: err.message || 'An unexpected error occurred during FPL data loading.',
+        action: 'Please ensure that your Express backend is running and you are connected to the internet.'
       });
       throw err;
     } finally {
@@ -129,8 +240,41 @@ function App() {
     }
   };
 
+  const handleRefreshData = async (force: boolean = false) => {
+    try {
+      const players = await loadInitialData(force);
+      
+      // Rerun optimizer if results exist
+      if (result) {
+        setLoading(true);
+        setLoadingMessage('Recalculating optimal lineup solver...');
+        const solverResult = solveSquad(players);
+        setResult(solverResult);
+        const explanation = generateOptimizationExplanation(players, solverResult, isPreSeason);
+        setOptExplanation(explanation);
+      }
+      
+      if (myTeamSquad.length === 15) {
+        setLoading(true);
+        setLoadingMessage('Recalculating My Team optimization...');
+        const solverResult = solveSquad(players, 1000, {
+          forcedPlayerIds: myTeamSquad.map(p => p.id)
+        });
+        if (solverResult.feasible) {
+          setMyTeamResult(solverResult);
+          const explanation = generateOptimizationExplanation(players, solverResult, isPreSeason);
+          setMyTeamExplanation(explanation);
+        }
+      }
+    } catch (e) {
+      console.error('Refresh recalculation failed:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    loadInitialData().catch(() => {});
+    handleRefreshData(false).catch(() => {});
   }, []);
 
   const fetchAndOptimize = async () => {
@@ -373,6 +517,54 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* Data Integrity Status Bar */}
+      <div className="bg-[#151824] border-b border-[#1e2330] py-2 px-6">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-4 text-gray-400">
+            <span className="flex items-center gap-1.5 font-semibold text-white">
+              {dataStatus === 'fresh' && <><span className="w-2.5 h-2.5 rounded-full bg-[#10b981] inline-block shrink-0"></span> Live / Fresh</>}
+              {dataStatus === 'cached' && <><span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] inline-block shrink-0"></span> Cached Data</>}
+              {dataStatus === 'unavailable' && <><span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] inline-block shrink-0"></span> Data Offline</>}
+            </span>
+            <span className="text-gray-600">|</span>
+            <span>Last Updated: <span className="font-mono text-gray-200">{lastUpdated || 'Never'}</span></span>
+            <span className="text-gray-600">|</span>
+            <span>Active: <span className="font-semibold text-gray-200">{gameweekName || 'Loading...'}</span></span>
+            {isPreSeason && (
+              <>
+                <span className="text-gray-600">|</span>
+                <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold">PRE-SEASON ACTIVE</span>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => handleRefreshData(true)}
+            disabled={loading}
+            className="px-3 py-1 bg-[#1e2330] hover:bg-[#2e3548] border border-[rgba(255,255,255,0.05)] rounded-lg text-[11px] font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+          >
+            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Refresh Data'}
+          </button>
+        </div>
+      </div>
+
+      {/* Data Validation Integrity Alerts */}
+      {dataWarnings.length > 0 && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 py-3 px-6 text-xs text-left text-[#f59e0b] flex items-start gap-2.5 max-w-7xl mx-auto mt-4 rounded-xl">
+          <AlertTriangle className="w-4.5 h-4.5 shrink-0 mt-0.5" />
+          <div>
+            <strong className="block mb-1 text-white font-semibold">FPL Data Integrity Warnings Detected:</strong>
+            <ul className="list-disc pl-4 space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+              {dataWarnings.slice(0, 3).map((w, idx) => (
+                <li key={idx}>{w}</li>
+              ))}
+              {dataWarnings.length > 3 && (
+                <li>... and {dataWarnings.length - 3} more integrity warnings. (Check developer console for full audit).</li>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="app-main">
