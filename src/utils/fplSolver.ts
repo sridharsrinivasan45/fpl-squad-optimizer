@@ -35,13 +35,55 @@ export function solveSquad(
 ): SolverResult {
   // We only consider players with positive or zero projected points.
   // Filter out any players with invalid numbers or missing info.
-  const validPlayers = players.filter(
+  const allValid = players.filter(
     (p) => 
       p.id && 
       p.web_name && 
       p.now_cost > 0 && 
       !isNaN(p.projected_points)
   );
+
+  let validPlayers = allValid;
+
+  // Pre-filter candidate pool if dealing with a full league pool (>30 players) to speed up solver execution
+  if (allValid.length > 30) {
+    const mustKeepIds = new Set<number>();
+    if (interventions?.forcedPlayerIds) {
+      interventions.forcedPlayerIds.forEach(id => mustKeepIds.add(id));
+    }
+
+    const gks = allValid.filter(p => p.element_type === 1);
+    const defs = allValid.filter(p => p.element_type === 2);
+    const mids = allValid.filter(p => p.element_type === 3);
+    const fwds = allValid.filter(p => p.element_type === 4);
+
+    const selectCandidates = (pool: Player[], topN: number, cheapM: number) => {
+      const candidates = new Set<number>();
+      
+      // Sort by points descending
+      const byPoints = [...pool].sort((a, b) => b.projected_points - a.projected_points);
+      byPoints.slice(0, topN).forEach(p => candidates.add(p.id));
+
+      // Sort by cost ascending
+      const byCost = [...pool].sort((a, b) => a.now_cost - b.now_cost);
+      byCost.slice(0, cheapM).forEach(p => candidates.add(p.id));
+
+      return candidates;
+    };
+
+    const gkCandidates = selectCandidates(gks, 15, 5);
+    const defCandidates = selectCandidates(defs, 25, 8);
+    const midCandidates = selectCandidates(mids, 25, 8);
+    const fwdCandidates = selectCandidates(fwds, 15, 5);
+
+    validPlayers = allValid.filter(p => 
+      mustKeepIds.has(p.id) ||
+      gkCandidates.has(p.id) ||
+      defCandidates.has(p.id) ||
+      midCandidates.has(p.id) ||
+      fwdCandidates.has(p.id)
+    );
+  }
 
   const finalBudget = interventions?.customBudgetLimit !== undefined 
     ? interventions.customBudgetLimit 

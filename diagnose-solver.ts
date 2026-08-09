@@ -27,11 +27,21 @@ async function diagnose() {
     console.log("Calculated projections for", projection.players.length, "players.");
 
     console.log("Running solver...");
+    const startSolver = Date.now();
     const result = solveSquad(projection.players);
-    console.log("Solver feasible:", result.feasible);
+    console.log(`Baseline solver finished in ${Date.now() - startSolver}ms. Feasible:`, result.feasible);
+    
     if (result.feasible) {
       console.log("Squad size:", result.squad.length);
       console.log("Total projected points:", result.totalProjectedPoints);
+
+      console.log("Running explainability engine (17 counterfactual solver runs)...");
+      const startExplain = Date.now();
+      const { generateOptimizationExplanation } = await import('./src/utils/explainabilityEngine');
+      const explanation = generateOptimizationExplanation(projection.players, result, projection.isPreSeason);
+      console.log(`Explainability engine finished in ${Date.now() - startExplain}ms.`);
+      console.log("Selections explanations count:", explanation.selections.length);
+      console.log("Exclusions explanations count:", explanation.exclusions.length);
     } else {
       console.log("Solver failed.");
     }
