@@ -329,31 +329,15 @@ export function PlayerPicker({
                     !validation.valid ? 'opacity-40 cursor-not-allowed bg-black/10' : ''
                   } ${isFocused ? 'bg-[rgba(56,189,248,0.06)] border-l-2 border-l-[#38bdf8]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}
                 >
-                  {/* LEFT: 36px Photo + Position Badge */}
+                  {/* LEFT: Clean Position Badge */}
                   <div className="flex items-center gap-2.5 shrink-0">
-                    <div className="relative w-9 h-9">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[10px] border border-[rgba(255,255,255,0.08)] bg-[#151824] ${
-                        player.element_type === 1 ? 'text-warning border-warning/20' :
-                        player.element_type === 2 ? 'text-[#38bdf8] border-[#38bdf8]/20' :
-                        player.element_type === 3 ? 'text-emerald-400 border-emerald-400/20' : 'text-purple-400 border-purple-400/20'
-                      }`}>
-                        {posAbbr}
-                      </div>
-                      <img
-                        src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.code}.png`}
-                        alt=""
-                        onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                        className="absolute inset-0 w-9 h-9 rounded-full object-cover border border-[#1e2330] bg-[#151824]"
-                      />
-                    </div>
-                    
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 ${
-                      player.element_type === 1 ? 'bg-warning/10 text-warning border border-warning/20' :
-                      player.element_type === 2 ? 'bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20' :
-                      player.element_type === 3 ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20' : 'bg-purple-400/10 text-purple-400 border border-purple-400/20'
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[10px] border border-[rgba(255,255,255,0.08)] bg-[#151824] ${
+                      player.element_type === 1 ? 'text-warning border-warning/20' :
+                      player.element_type === 2 ? 'text-[#38bdf8] border-[#38bdf8]/20' :
+                      player.element_type === 3 ? 'text-emerald-400 border-emerald-400/20' : 'text-purple-400 border-purple-400/20'
                     }`}>
                       {posAbbr}
-                    </span>
+                    </div>
                   </div>
 
                   {/* CENTER: Player Name + Club • Position • Price */}

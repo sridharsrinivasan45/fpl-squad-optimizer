@@ -960,8 +960,7 @@ function App() {
                       <div className="bench-card info-trigger relative" data-tooltip={`GK Reserve: ${benchGK.web_name}\nPrice: £${(benchGK.now_cost / 10).toFixed(1)}m`}>
                         <span className="bench-role-label">Reserve GK</span>
                         <div className="w-8 h-8 rounded-full mb-1.5 flex items-center justify-center font-bold text-xs text-white pitch-shirt gk" style={{ marginTop: '8px', position: 'relative' }}>
-                          <img src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${benchGK.code}.png`} onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute' }} />
-                          <span style={{ zIndex: 1 }}>GK</span>
+                          <span>GK</span>
                           <button onClick={() => removePlayerFromMyTeam(benchGK.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full text-white w-3.5 h-3.5 flex items-center justify-center font-bold border border-[rgba(255,255,255,0.2)] text-[9px] cursor-pointer">×</button>
                         </div>
                         <span className="text-[10px] font-semibold text-white block truncate w-full">{benchGK.web_name}</span>
@@ -978,8 +977,7 @@ function App() {
                       <div className="bench-card info-trigger relative" data-tooltip={`DEF Reserve: ${benchDEF.web_name}\nPrice: £${(benchDEF.now_cost / 10).toFixed(1)}m`}>
                         <span className="bench-role-label">DEF 5</span>
                         <div className="w-8 h-8 rounded-full mb-1.5 flex items-center justify-center font-bold text-xs text-white pitch-shirt def" style={{ marginTop: '8px', position: 'relative' }}>
-                          <img src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${benchDEF.code}.png`} onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute' }} />
-                          <span style={{ zIndex: 1 }}>DEF</span>
+                          <span>DEF</span>
                           <button onClick={() => removePlayerFromMyTeam(benchDEF.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full text-white w-3.5 h-3.5 flex items-center justify-center font-bold border border-[rgba(255,255,255,0.2)] text-[9px] cursor-pointer">×</button>
                         </div>
                         <span className="text-[10px] font-semibold text-white block truncate w-full">{benchDEF.web_name}</span>
@@ -996,8 +994,7 @@ function App() {
                       <div className="bench-card info-trigger relative" data-tooltip={`MID Reserve: ${benchMID.web_name}\nPrice: £${(benchMID.now_cost / 10).toFixed(1)}m`}>
                         <span className="bench-role-label">MID 5</span>
                         <div className="w-8 h-8 rounded-full mb-1.5 flex items-center justify-center font-bold text-xs text-white pitch-shirt mid" style={{ marginTop: '8px', position: 'relative' }}>
-                          <img src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${benchMID.code}.png`} onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute' }} />
-                          <span style={{ zIndex: 1 }}>MID</span>
+                          <span>MID</span>
                           <button onClick={() => removePlayerFromMyTeam(benchMID.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full text-white w-3.5 h-3.5 flex items-center justify-center font-bold border border-[rgba(255,255,255,0.2)] text-[9px] cursor-pointer">×</button>
                         </div>
                         <span className="text-[10px] font-semibold text-white block truncate w-full">{benchMID.web_name}</span>
@@ -1014,8 +1011,7 @@ function App() {
                       <div className="bench-card info-trigger relative" data-tooltip={`FWD Reserve: ${benchFWD.web_name}\nPrice: £${(benchFWD.now_cost / 10).toFixed(1)}m`}>
                         <span className="bench-role-label">FWD 3</span>
                         <div className="w-8 h-8 rounded-full mb-1.5 flex items-center justify-center font-bold text-xs text-white pitch-shirt fwd" style={{ marginTop: '8px', position: 'relative' }}>
-                          <img src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${benchFWD.code}.png`} onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute' }} />
-                          <span style={{ zIndex: 1 }}>FWD</span>
+                          <span>FWD</span>
                           <button onClick={() => removePlayerFromMyTeam(benchFWD.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full text-white w-3.5 h-3.5 flex items-center justify-center font-bold border border-[rgba(255,255,255,0.2)] text-[9px] cursor-pointer">×</button>
                         </div>
                         <span className="text-[10px] font-semibold text-white block truncate w-full">{benchFWD.web_name}</span>
@@ -2421,15 +2417,7 @@ function PlayerPitchCard({ player, captainId, viceCaptainId, onRemove }: PitchCa
       data-tooltip={tooltipText}
     >
       <div className={`pitch-shirt ${posClass}`} style={{ position: 'relative' }}>
-        <img
-          src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.code}.png`}
-          alt={player.web_name}
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-          }}
-          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }}
-        />
-        <span className="pitch-shirt-fallback" style={{ zIndex: 1 }}>{posAbbr}</span>
+        <span>{posAbbr}</span>
         {isCap && <div className="badge-c">C</div>}
         {isVc && <div className="badge-vc">VC</div>}
         {hasInjuryWarning && <div className="badge-warning">!</div>}
