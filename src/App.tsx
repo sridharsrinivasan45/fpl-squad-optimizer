@@ -651,6 +651,43 @@ function App() {
     myTeamCost <= 1000 &&
     Object.values(clubCounts).every(c => c <= 3);
 
+  const focusPickerSearch = () => {
+    const el = document.querySelector('.search-picker-card input') as HTMLInputElement;
+    if (el) {
+      el.focus();
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // Map drafted roster to pitch slots (4-4-2 default layout)
+  const gksInSquad = myTeamSquad.filter(p => p.element_type === 1);
+  const defsInSquad = myTeamSquad.filter(p => p.element_type === 2);
+  const midsInSquad = myTeamSquad.filter(p => p.element_type === 3);
+  const fwdsInSquad = myTeamSquad.filter(p => p.element_type === 4);
+
+  const startingGK = gksInSquad[0] || null;
+  const startingDEFs = [
+    defsInSquad[0] || null,
+    defsInSquad[1] || null,
+    defsInSquad[2] || null,
+    defsInSquad[3] || null,
+  ];
+  const startingMIDs = [
+    midsInSquad[0] || null,
+    midsInSquad[1] || null,
+    midsInSquad[2] || null,
+    midsInSquad[3] || null,
+  ];
+  const startingFWDs = [
+    fwdsInSquad[0] || null,
+    fwdsInSquad[1] || null,
+  ];
+
+  const benchGK = gksInSquad[1] || null;
+  const benchDEF = defsInSquad[4] || null;
+  const benchMID = midsInSquad[4] || null;
+  const benchFWD = fwdsInSquad[2] || null;
+
   return (
     <div className="min-h-screen pb-12">
       {/* Top Navigation / Header */}
@@ -830,13 +867,175 @@ function App() {
         )}
 
         {/* Squad Builder Drafting Area for My Team Mode */}
+        {/* Squad Builder Drafting Area for My Team Mode */}
         {mode === 'my-team' && !myTeamResult && !loading && !error && (
           <div className="dashboard-grid">
-            {/* Left Column: Autocomplete Search + Drafted Roster List */}
+            {/* Left Column: Tactical Chalkboard Pitch representation of drafted squad */}
             <div className="grid-left-col">
-              <div className="glass-panel">
-                <h4 className="text-white font-bold text-sm mb-4 tracking-wider text-left">DRAFT YOUR 15-PLAYER SQUAD</h4>
-                
+              <div className="glass-panel text-center animate-fade-in" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                  <div className="text-left">
+                    <h3 className="text-sm font-bold text-white m-0 uppercase tracking-wider">Draft Your Squad</h3>
+                    <span className="text-[10px] text-gray-400 block mt-1">
+                      Build your 15-player squad. We'll choose the best 11 for you.
+                    </span>
+                  </div>
+                  <div className="formation-badge">
+                    4-4-2 Draft layout
+                  </div>
+                </div>
+
+                <div className="pitch-container">
+                  <div className="pitch-half-line"></div>
+                  <div className="pitch-center-circle"></div>
+                  <div className="pitch-box-top"></div>
+                  <div className="pitch-box-bottom"></div>
+
+                  {/* GK Row */}
+                  <div className="pitch-row" style={{ height: '22%' }}>
+                    {startingGK ? (
+                      <PlayerPitchCard 
+                        player={startingGK} 
+                        onRemove={removePlayerFromMyTeam} 
+                      />
+                    ) : (
+                      <EmptyPitchCard positionName="GK 1" onClick={focusPickerSearch} />
+                    )}
+                  </div>
+
+                  {/* DEF Row */}
+                  <div className="pitch-row" style={{ height: '26%' }}>
+                    {startingDEFs.map((player, idx) => 
+                      player ? (
+                        <PlayerPitchCard 
+                          key={player.id} 
+                          player={player} 
+                          onRemove={removePlayerFromMyTeam} 
+                        />
+                      ) : (
+                        <EmptyPitchCard key={`def-${idx}`} positionName={`DEF ${idx + 1}`} onClick={focusPickerSearch} />
+                      )
+                    )}
+                  </div>
+
+                  {/* MID Row */}
+                  <div className="pitch-row" style={{ height: '26%' }}>
+                    {startingMIDs.map((player, idx) => 
+                      player ? (
+                        <PlayerPitchCard 
+                          key={player.id} 
+                          player={player} 
+                          onRemove={removePlayerFromMyTeam} 
+                        />
+                      ) : (
+                        <EmptyPitchCard key={`mid-${idx}`} positionName={`MID ${idx + 1}`} onClick={focusPickerSearch} />
+                      )
+                    )}
+                  </div>
+
+                  {/* FWD Row */}
+                  <div className="pitch-row" style={{ height: '26%' }}>
+                    {startingFWDs.map((player, idx) => 
+                      player ? (
+                        <PlayerPitchCard 
+                          key={player.id} 
+                          player={player} 
+                          onRemove={removePlayerFromMyTeam} 
+                        />
+                      ) : (
+                        <EmptyPitchCard key={`fwd-${idx}`} positionName={`FWD ${idx + 1}`} onClick={focusPickerSearch} />
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* Bench Outfield/Reserve Slots */}
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+                  <div className="flex items-center gap-2 mb-3 text-left">
+                    <Users className="w-4 h-4 text-[#3a86c8]" />
+                    <h4 className="text-white font-bold text-xs uppercase tracking-wider m-0">Draft Roster Reserves (Bench)</h4>
+                  </div>
+                  <div className="bench-grid">
+                    {benchGK ? (
+                      <div className="bench-card info-trigger relative" data-tooltip={`GK Reserve: ${benchGK.web_name}\nPrice: £${(benchGK.now_cost / 10).toFixed(1)}m`}>
+                        <span className="bench-role-label">Reserve GK</span>
+                        <div className="w-8 h-8 rounded-full mb-1.5 flex items-center justify-center font-bold text-xs text-white pitch-shirt gk" style={{ marginTop: '8px', position: 'relative' }}>
+                          <img src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${benchGK.code}.png`} onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute' }} />
+                          <span style={{ zIndex: 1 }}>GK</span>
+                          <button onClick={() => removePlayerFromMyTeam(benchGK.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full text-white w-3.5 h-3.5 flex items-center justify-center font-bold border border-[rgba(255,255,255,0.2)] text-[9px] cursor-pointer">×</button>
+                        </div>
+                        <span className="text-[10px] font-semibold text-white block truncate w-full">{benchGK.web_name}</span>
+                        <span className="text-[9px] text-gray-400 font-mono">£{(benchGK.now_cost / 10).toFixed(1)}m</span>
+                      </div>
+                    ) : (
+                      <div onClick={focusPickerSearch} className="bench-card border border-dashed border-gray-600 opacity-40 cursor-pointer flex flex-col items-center justify-center py-2 rounded-xl">
+                        <span className="bench-role-label">Reserve GK</span>
+                        <span className="text-sm font-bold text-gray-500 mt-2">+</span>
+                      </div>
+                    )}
+
+                    {benchDEF ? (
+                      <div className="bench-card info-trigger relative" data-tooltip={`DEF Reserve: ${benchDEF.web_name}\nPrice: £${(benchDEF.now_cost / 10).toFixed(1)}m`}>
+                        <span className="bench-role-label">DEF 5</span>
+                        <div className="w-8 h-8 rounded-full mb-1.5 flex items-center justify-center font-bold text-xs text-white pitch-shirt def" style={{ marginTop: '8px', position: 'relative' }}>
+                          <img src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${benchDEF.code}.png`} onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute' }} />
+                          <span style={{ zIndex: 1 }}>DEF</span>
+                          <button onClick={() => removePlayerFromMyTeam(benchDEF.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full text-white w-3.5 h-3.5 flex items-center justify-center font-bold border border-[rgba(255,255,255,0.2)] text-[9px] cursor-pointer">×</button>
+                        </div>
+                        <span className="text-[10px] font-semibold text-white block truncate w-full">{benchDEF.web_name}</span>
+                        <span className="text-[9px] text-gray-400 font-mono">£{(benchDEF.now_cost / 10).toFixed(1)}m</span>
+                      </div>
+                    ) : (
+                      <div onClick={focusPickerSearch} className="bench-card border border-dashed border-gray-600 opacity-40 cursor-pointer flex flex-col items-center justify-center py-2 rounded-xl">
+                        <span className="bench-role-label">DEF 5</span>
+                        <span className="text-sm font-bold text-gray-500 mt-2">+</span>
+                      </div>
+                    )}
+
+                    {benchMID ? (
+                      <div className="bench-card info-trigger relative" data-tooltip={`MID Reserve: ${benchMID.web_name}\nPrice: £${(benchMID.now_cost / 10).toFixed(1)}m`}>
+                        <span className="bench-role-label">MID 5</span>
+                        <div className="w-8 h-8 rounded-full mb-1.5 flex items-center justify-center font-bold text-xs text-white pitch-shirt mid" style={{ marginTop: '8px', position: 'relative' }}>
+                          <img src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${benchMID.code}.png`} onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute' }} />
+                          <span style={{ zIndex: 1 }}>MID</span>
+                          <button onClick={() => removePlayerFromMyTeam(benchMID.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full text-white w-3.5 h-3.5 flex items-center justify-center font-bold border border-[rgba(255,255,255,0.2)] text-[9px] cursor-pointer">×</button>
+                        </div>
+                        <span className="text-[10px] font-semibold text-white block truncate w-full">{benchMID.web_name}</span>
+                        <span className="text-[9px] text-gray-400 font-mono">£{(benchMID.now_cost / 10).toFixed(1)}m</span>
+                      </div>
+                    ) : (
+                      <div onClick={focusPickerSearch} className="bench-card border border-dashed border-gray-600 opacity-40 cursor-pointer flex flex-col items-center justify-center py-2 rounded-xl">
+                        <span className="bench-role-label">MID 5</span>
+                        <span className="text-sm font-bold text-gray-500 mt-2">+</span>
+                      </div>
+                    )}
+
+                    {benchFWD ? (
+                      <div className="bench-card info-trigger relative" data-tooltip={`FWD Reserve: ${benchFWD.web_name}\nPrice: £${(benchFWD.now_cost / 10).toFixed(1)}m`}>
+                        <span className="bench-role-label">FWD 3</span>
+                        <div className="w-8 h-8 rounded-full mb-1.5 flex items-center justify-center font-bold text-xs text-white pitch-shirt fwd" style={{ marginTop: '8px', position: 'relative' }}>
+                          <img src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${benchFWD.code}.png`} onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute' }} />
+                          <span style={{ zIndex: 1 }}>FWD</span>
+                          <button onClick={() => removePlayerFromMyTeam(benchFWD.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full text-white w-3.5 h-3.5 flex items-center justify-center font-bold border border-[rgba(255,255,255,0.2)] text-[9px] cursor-pointer">×</button>
+                        </div>
+                        <span className="text-[10px] font-semibold text-white block truncate w-full">{benchFWD.web_name}</span>
+                        <span className="text-[9px] text-gray-400 font-mono">£{(benchFWD.now_cost / 10).toFixed(1)}m</span>
+                      </div>
+                    ) : (
+                      <div onClick={focusPickerSearch} className="bench-card border border-dashed border-gray-600 opacity-40 cursor-pointer flex flex-col items-center justify-center py-2 rounded-xl">
+                        <span className="bench-role-label">FWD 3</span>
+                        <span className="text-sm font-bold text-gray-500 mt-2">+</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Search picker + validation */}
+            <div className="grid-right-col animate-fade-in">
+              <div className="glass-panel text-left">
+                <h4 className="text-white font-bold text-sm mb-4 tracking-wider uppercase">Add Players</h4>
                 <div className="search-picker-card">
                   <PlayerPicker
                     players={allPlayers}
@@ -850,50 +1049,10 @@ function App() {
                     onOpenChange={setPickerActive}
                   />
                 </div>
-
-                {!pickerActive && (
-                  <div className="border-t border-[rgba(255,255,255,0.08)] pt-4">
-                    <h5 className="text-white font-bold text-xs uppercase tracking-wider mb-2 text-left">Drafted Roster ({myTeamSquad.length} / 15)</h5>
-                    {myTeamSquad.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-gray-500 italic">No players drafted yet. Use the search bar above to build your squad.</div>
-                    ) : (
-                      <div className="roster-list custom-scrollbar" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                        {myTeamSquad
-                          .sort((a, b) => {
-                            if (a.element_type !== b.element_type) return a.element_type - b.element_type;
-                            return b.projected_points - a.projected_points;
-                          })
-                          .map((player) => {
-                            const posNames = ['GK', 'DEF', 'MID', 'FWD'];
-                            const posName = posNames[player.element_type - 1];
-                            return (
-                              <div key={player.id} className="roster-item">
-                                <div className="text-left">
-                                  <span className="font-semibold text-white text-xs block">{player.web_name}</span>
-                                  <span className="text-[10px] text-gray-400">
-                                    {posName} | {player.team_short_name} | £{(player.now_cost / 10).toFixed(1)}m | Proj: {player.projected_points} pts
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => removePlayerFromMyTeam(player.id)}
-                                  className="btn-remove-player"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
-            </div>
 
-            {/* Right Column: Validation Metrics Panel */}
-            <div className="grid-right-col">
-              <div className="glass-panel">
-                <h4 className="text-white font-bold text-sm mb-4 tracking-wider text-left">SQUAD VALIDATION</h4>
+              <div className="glass-panel text-left">
+                <h4 className="text-white font-bold text-sm mb-4 tracking-wider uppercase">Squad Validation</h4>
                 
                 <div className="validation-card text-left">
                   {/* Budget Meter */}
@@ -908,7 +1067,7 @@ function App() {
                         style={{ width: `${Math.min((myTeamCost / 1000) * 100, 100)}%` }}
                       ></div>
                     </div>
-                    <span className="text-[10px] text-gray-400 block mt-1">
+                    <span className="text-[10px] text-gray-400 block mt-1 font-semibold">
                       {budgetRemaining >= 0 
                         ? `£${budgetRemaining.toFixed(1)}m remaining` 
                         : `£${Math.abs(budgetRemaining).toFixed(1)}m over budget!`}
@@ -978,10 +1137,10 @@ function App() {
                   onClick={optimizeMyTeam}
                   className="btn-primary w-full justify-center mt-8 py-3 text-base"
                 >
-                  Optimize My Team
+                  Optimize Starting XI
                 </button>
               </div>
-              
+
               {/* Chip Advisor Panel */}
               {renderChipAdvisor()}
             </div>
@@ -2242,9 +2401,10 @@ interface PitchCardProps {
   player: Player;
   captainId?: number;
   viceCaptainId?: number;
+  onRemove?: (id: number) => void;
 }
 
-function PlayerPitchCard({ player, captainId, viceCaptainId }: PitchCardProps) {
+function PlayerPitchCard({ player, captainId, viceCaptainId, onRemove }: PitchCardProps) {
   const isCap = player.id === captainId;
   const isVc = player.id === viceCaptainId;
   const positionClasses = ['gk', 'def', 'mid', 'fwd'];
@@ -2260,15 +2420,70 @@ function PlayerPitchCard({ player, captainId, viceCaptainId }: PitchCardProps) {
       className="pitch-player-card info-trigger" 
       data-tooltip={tooltipText}
     >
-      <div className={`pitch-shirt ${posClass}`}>
-        {posAbbr}
+      <div className={`pitch-shirt ${posClass}`} style={{ position: 'relative' }}>
+        <img
+          src={`https://resources.premierleague.com/premierleague/photos/players/110x140/p${player.code}.png`}
+          alt={player.web_name}
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }}
+        />
+        <span className="pitch-shirt-fallback" style={{ zIndex: 1 }}>{posAbbr}</span>
         {isCap && <div className="badge-c">C</div>}
         {isVc && <div className="badge-vc">VC</div>}
         {hasInjuryWarning && <div className="badge-warning">!</div>}
+
+        {onRemove && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(player.id);
+            }}
+            className="flex items-center justify-center text-white bg-red-500 rounded-full cursor-pointer hover:bg-red-600 transition-all font-bold"
+            style={{
+              position: 'absolute',
+              top: '-8px',
+              right: '-8px',
+              width: '15px',
+              height: '15px',
+              fontSize: '10px',
+              border: '1px solid var(--bg-main)',
+              zIndex: 10,
+              padding: 0,
+              lineHeight: 1
+            }}
+            title="Remove from squad"
+          >
+            ×
+          </button>
+        )}
       </div>
       <div className="pitch-player-info">
         <span className="pitch-player-name">{player.web_name}</span>
-        <span className="pitch-player-points">{player.projected_points} pts</span>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '2px' }}>
+          <span className="text-[9px] text-gray-400 font-mono">£{(player.now_cost / 10).toFixed(1)}m</span>
+          <span className="pitch-player-points">{player.projected_points} pts</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyPitchCard({ positionName, onClick }: { positionName: string; onClick?: () => void }) {
+  return (
+    <div 
+      onClick={onClick}
+      className="pitch-player-card empty-slot" 
+      style={{ cursor: 'pointer' }}
+    >
+      <div className="pitch-shirt flex items-center justify-center border border-dashed border-gray-600 rounded-full" style={{ width: '40px', height: '40px', background: 'transparent' }}>
+        <span className="text-xs text-gray-500 font-bold">+</span>
+      </div>
+      <div className="pitch-player-info">
+        <span className="pitch-player-name" style={{ background: 'transparent', borderColor: 'rgba(255,255,255,0.06)', color: 'var(--secondary)', borderStyle: 'dashed' }}>
+          {positionName}
+        </span>
       </div>
     </div>
   );
