@@ -1,0 +1,92 @@
+[
+  {
+    "id": 572,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 385,
+    "isStarter": false,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 279,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 115,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 8,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 391,
+    "isStarter": false,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 277,
+    "isStarter": false,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 426,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": true
+  },
+  {
+    "id": 367,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 565,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 86,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 124,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 411,
+    "isStarter": true,
+    "isCaptain": true,
+    "isVice": false
+  },
+  {
+    "id": 379,
+    "isStarter": true,
+    "isCaptain": false,
+    "isVice": false
+  },
+  {
+    "id": 464,
+    "isStarter": false,
+    "isCaptain": false,
+    "isVice": false
+  }
+]

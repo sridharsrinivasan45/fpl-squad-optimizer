@@ -325,13 +325,13 @@ export function PlayerPicker({
                       handleSelectPlayer(player);
                     }
                   }}
-                  className={`flex items-center justify-between px-3 py-1.5 border-b border-[#1e2330]/30 transition-all cursor-pointer h-[60px] group ${
+                  className={`flex items-center justify-between px-4 py-3 border-b border-[#1e2330]/30 transition-all cursor-pointer group ${
                     !validation.valid ? 'opacity-40 cursor-not-allowed bg-black/10' : ''
                   } ${isFocused ? 'bg-[rgba(56,189,248,0.06)] border-l-2 border-l-[#38bdf8]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}
                 >
                   {/* LEFT: Clean Position Badge */}
                   <div className="flex items-center gap-2.5 shrink-0">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[10px] border border-[rgba(255,255,255,0.08)] bg-[#151824] ${
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs border border-[rgba(255,255,255,0.08)] bg-[#151824] ${
                       player.element_type === 1 ? 'text-warning border-warning/20' :
                       player.element_type === 2 ? 'text-[#38bdf8] border-[#38bdf8]/20' :
                       player.element_type === 3 ? 'text-emerald-400 border-emerald-400/20' : 'text-purple-400 border-purple-400/20'
@@ -342,8 +342,8 @@ export function PlayerPicker({
 
                   {/* CENTER: Player Name + Club • Position • Price */}
                   <div className="flex-1 min-w-0 text-left px-3">
-                    <span className="font-semibold text-white text-xs block truncate">{player.web_name}</span>
-                    <span className="text-[10px] text-gray-400 block mt-0.5 truncate">
+                    <span className="font-semibold text-white text-sm block truncate">{player.web_name}</span>
+                    <span className="text-xs text-gray-400 block mt-0.5 truncate">
                       {player.team_name} • {posAbbr} • £{(player.now_cost / 10).toFixed(1)}m
                     </span>
                   </div>
@@ -351,24 +351,24 @@ export function PlayerPicker({
                   {/* RIGHT: Projected points + Recommendation badge + news flag */}
                   <div className="flex items-center gap-3 shrink-0 text-right">
                     {hasInjury && (
-                      <div className="w-5 h-5 bg-yellow-500/10 border border-yellow-500/30 rounded-full flex items-center justify-center text-[10px] font-bold text-[#f59e0b] shrink-0" title={player.news}>
+                      <div className="w-5 h-5 bg-yellow-500/10 border border-yellow-500/30 rounded-full flex items-center justify-center text-xs font-bold text-[#f59e0b] shrink-0" title={player.news}>
                         !
                       </div>
                     )}
 
                     <div className="flex flex-col items-end">
-                      <span className="text-[#10b981] font-bold font-mono text-xs">{player.projected_points.toFixed(1)} EP</span>
+                      <span className="text-[#10b981] font-bold font-mono text-sm">{player.projected_points.toFixed(1)} EP</span>
                       
                       {!validation.valid ? (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[#ef4444] font-semibold mt-0.5 shrink-0 block">
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[#ef4444] font-semibold mt-0.5 shrink-0 block">
                           {validation.reason}
                         </span>
                       ) : validation.reason === 'Exceeds Budget' ? (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 text-[#f59e0b] font-semibold mt-0.5 shrink-0 block">
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 text-[#f59e0b] font-semibold mt-0.5 shrink-0 block">
                           Exceeds Budget
                         </span>
                       ) : (
-                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5 shrink-0 block ${
+                        <span className={`text-[11px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5 shrink-0 block ${
                           rec.categoryLabel.includes('Essential') || rec.categoryLabel.includes('Strong')
                             ? 'bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/20'
                             : rec.categoryLabel.includes('Monitor') || rec.categoryLabel.includes('Differential')

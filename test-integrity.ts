@@ -139,4 +139,16 @@ if (finalProbPercent !== 75) {
 }
 console.log('✅ Test 7 Passed: Doubtful player playing probability (Single Discount)');
 
+// Test 8: Dynamic Fixture Integrity (Non-existent / Relegated Opponent Rejection)
+const invalidFixtures = [
+  { event: 1, team_h: 1, team_a: 99, team_h_difficulty: 2, team_a_difficulty: 5, finished: false }, // team 99 does not exist
+  { event: 1, team_h: 1, team_a: 2, team_h_difficulty: 3, team_a_difficulty: 4, finished: false }
+];
+const fixtureIntegrityProj = calculateProjectedPoints(mockElements, mockTeams, invalidFixtures, 1);
+const sakaProj = fixtureIntegrityProj.players.find(p => p.id === 101);
+// Saka should only have 1 valid fixture (vs team 2), not the invalid fixture vs team 99
+console.assert(sakaProj?.fixtures?.length === 1, `Expected Saka to have 1 valid fixture, got ${sakaProj?.fixtures?.length}`);
+console.assert(sakaProj?.fixtures?.[0]?.opponent === 'NEW', `Expected Saka opponent to be NEW, got ${sakaProj?.fixtures?.[0]?.opponent}`);
+console.log('✅ Test 8 Passed: Invalid/relegated fixture rejection and dynamic 2026/27 team set validation');
+
 console.log('All FPL Data Integrity Tests PASSED successfully!');

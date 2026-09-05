@@ -47,12 +47,24 @@ export function calculateProjectedPoints(
   fixtures: any[],
   currentGameweek: number
 ): ProjectionResult {
+  const validTeamIds = new Set<number>(teams.map((t: any) => t.id));
   const teamMap = new Map<number, { name: string; short_name: string }>();
   teams.forEach((t: any) => {
     teamMap.set(t.id, { name: t.name, short_name: t.short_name });
   });
 
-  const gwFixtures = fixtures.filter((f: any) => f.event === currentGameweek);
+  // Dynamic Fixture Integrity: Authoritative 2026/27 Team Validation
+  // Reject any fixture where either home or away team is not in the current season team set
+  const gwFixtures = fixtures.filter((f: any) => {
+    if (f.event !== currentGameweek) return false;
+    const isHomeValid = validTeamIds.has(f.team_h);
+    const isAwayValid = validTeamIds.has(f.team_a);
+    if (!isHomeValid || !isAwayValid) {
+      console.warn(`[Fixture Integrity Warning] Discarding fixture #${f.id} with invalid team(s) (Home: ${f.team_h}, Away: ${f.team_a}). Not in 2026/27 team set.`);
+      return false;
+    }
+    return true;
+  });
 
   // Detect pre-season mode:
   // If the maximum form across all players is <= 0.05, we are in pre-season.
@@ -63,11 +75,13 @@ export function calculateProjectedPoints(
   });
   const isPreSeason = maxForm <= 0.05;
 
-  // Calculate matches available per team (finished fixtures) in the current season
+  // Calculate matches available per team (completed/started fixtures prior to currentGameweek) in the current season
   const matchesAvailableMap = new Map<number, number>();
   teams.forEach((t: any) => {
     const teamFinishedFixtures = fixtures.filter(
-      (f: any) => (f.team_h === t.id || f.team_a === t.id) && f.finished === true
+      (f: any) => 
+        (f.team_h === t.id || f.team_a === t.id) && 
+        (f.finished === true || f.started === true || f.finished_provisional === true || (f.event && f.event < currentGameweek))
     );
     matchesAvailableMap.set(t.id, teamFinishedFixtures.length);
   });
@@ -94,17 +108,26 @@ export function calculateProjectedPoints(
     const matchesAvailable = matchesAvailableMap.get(teamId) || 0;
     const w = Math.max(0.30, 1 - (matchesAvailable / 5));
 
-    // Blended baseline points:
-    // If a player has no historical points_per_game (e.g. promoted/new), estimate baseline using FPL price
-    let estimatedPpg = ppg;
-    if (ppg === 0) {
-      const posMapDefaults = { 1: 2.5, 2: 2.0, 3: 2.5, 4: 3.0 };
-      const defaultPosPPG = posMapDefaults[el.element_type as keyof typeof posMapDefaults] || 2.5;
-      const costEstimatePPG = el.now_cost / 20;
-      estimatedPpg = Math.max(defaultPosPPG, costEstimatePPG);
-    }
+    // Determine Pre-Season Prior (independent of live in-season points_per_game overwrite)
+    const posMapDefaults = { 1: 2.5, 2: 2.0, 3: 2.5, 4: 3.0 };
+    const defaultPosPPG = posMapDefaults[el.element_type as keyof typeof posMapDefaults] || 2.5;
+    const startingCost = (el.now_cost - (el.cost_change_start || 0)) / 10;
+    const costEstimatePrior = startingCost / 2; // e.g. £15.5m -> 7.75, £12.0m -> 6.00, £8.0m -> 4.00, £4.5m -> 2.25
+    const preSeasonPrior = Math.max(defaultPosPPG, costEstimatePrior);
 
-    const basePoints = w * estimatedPpg + (1 - w) * form;
+    // Blended baseline points:
+    // In pre-season: use estimated pre-season ppg
+    // In-season: blend 60% pre-season prior + 40% observed 2026/27 form
+    let basePoints: number;
+    if (matchesAvailable > 0) {
+      basePoints = w * preSeasonPrior + (1 - w) * form;
+    } else {
+      let estimatedPpg = ppg;
+      if (ppg === 0) {
+        estimatedPpg = Math.max(defaultPosPPG, costEstimatePrior);
+      }
+      basePoints = estimatedPpg;
+    }
     
     const playerGwFixtures = gwFixtures.filter(
       (f: any) => f.team_h === teamId || f.team_a === teamId
@@ -159,10 +182,16 @@ export function calculateProjectedPoints(
       };
     });
 
-    // STEP 1 & 2: Playing Probability Initial Estimate
+    // STEP 1 & 2: Playing Probability Initial Estimate from Live FPL Status & Chance Fields
     let playingProbability = 1.0;
     if (el.chance_of_playing_next_round !== null && el.chance_of_playing_next_round !== undefined) {
       playingProbability = el.chance_of_playing_next_round / 100;
+    } else if (el.status === 'i' || el.status === 'u' || el.status === 's') {
+      // Confirmed injured, unavailable/transferred, or suspended -> 0% playing probability
+      playingProbability = 0.0;
+    } else if (el.status === 'd') {
+      // Doubtful without explicit percentage -> 50% default probability
+      playingProbability = 0.50;
     } else {
       if (matchesAvailable > 0) {
         // In-season estimation using active statistics

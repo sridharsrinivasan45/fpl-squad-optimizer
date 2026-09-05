@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FPL Analytics | Decision Support System</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    
+    <!-- App Header -->
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="brand-section">
+          <div class="brand-badge">FPL</div>
+          <div class="brand-title">
+            <span>FPL ANALYTICS</span>
+            <span class="brand-subtitle">DECISION SUPPORT SYSTEM</span>
+          </div>
+        </div>
+
+        <nav class="nav-tabs">
+          <button class="nav-tab-btn active" data-tab="optimal">Optimal Squad</button>
+          <button class="nav-tab-btn" data-tab="my-team">My Team</button>
+          <button class="nav-tab-btn" data-tab="scouting">Scouting</button>
+          <button class="nav-tab-btn" data-tab="comparison">Comparison</button>
+          <button class="nav-tab-btn" data-tab="simulator">Simulator</button>
+          <button class="nav-tab-btn special-tab" data-tab="learning-report" style="color:#38bdf8;">Model Learning Report</button>
+          <button class="nav-tab-btn" data-tab="academy">FPL Academy</button>
+        </nav>
+
+        <div class="header-status-pill">
+          <span class="status-indicator-dot"></span>
+          <span>2026/27 LIVE • GW1 & GW2 COMPLETED • GW3 ACTIVE</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+
+      <!-- ============================================================ -->
+      <!-- VIEW 1: OPTIMAL SQUAD                                        -->
+      <!-- ============================================================ -->
+      <section id="view-optimal" class="tab-view-content" style="display: block;">
+        
+        <!-- Model Horizon Selector -->
+        <div class="panel" style="padding: 12px 20px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; font-family: var(--font-mono);">Active Horizon:</span>
+            <button class="btn btn-secondary opt-mode-btn active" data-mode="gw3" onclick="toggleOptimalMode('gw3')">
+              ⚡ 2026/27 Early-Season Model (GW3)
+            </button>
+            <button class="btn btn-secondary opt-mode-btn" data-mode="preseason" onclick="toggleOptimalMode('preseason')">
+              ❄️ Pre-Season Baseline Prior (57.97)
+            </button>
+          </div>
+          <span id="opt-kpi-badge-title" style="font-size: 11px; font-family: var(--font-mono); color: #38bdf8; font-weight: 700;">
+            2026/27 Early-Season Model (GW3 Active)
+          </span>
+        </div>
+
+        <!-- KPI Metrics Header -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Projected Starting XI Points</div>
+            <div class="kpi-value" id="opt-kpi-points" style="color: #38bdf8;">66.51 pts</div>
+            <div class="kpi-subtext" id="opt-kpi-subpoints">75.34 pts with Captain (2x)</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Squad Cost</div>
+            <div class="kpi-value" id="opt-kpi-cost">£99.7m / £100.0m</div>
+            <div class="kpi-subtext" id="opt-kpi-bank">£0.3m bank remaining</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Active Formation</div>
+            <div class="kpi-value" id="opt-kpi-formation">3-5-2</div>
+            <div class="kpi-subtext">Optimized attacking yield</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Captaincy Selection</div>
+            <div class="kpi-value" id="opt-kpi-captain" style="color: #f59e0b;">Haaland (C)</div>
+            <div class="kpi-subtext" id="opt-kpi-vice">Vice: B. Fernandes (MUN)</div>
+          </div>
+        </div>
+
+        <div class="grid-2col">
+          <!-- Left: Tactical Football Pitch -->
+          <div>
+            <div class="pitch-wrapper">
+              <div class="pitch-markings">
+                <div class="pitch-center-circle"></div>
+                <div class="pitch-half-line"></div>
+              </div>
+
+              <!-- Positional Rows -->
+              <div class="pitch-row" id="opt-row-gk"></div>
+              <div class="pitch-row" id="opt-row-def"></div>
+              <div class="pitch-row" id="opt-row-mid"></div>
+              <div class="pitch-row" id="opt-row-fwd"></div>
+            </div>
+
+            <!-- Bench Row -->
+            <div class="bench-dugout">
+              <div class="bench-header">
+                <span>Substitutes / Bench Depth</span>
+                <span>Auto-Substitution Order</span>
+              </div>
+              <div class="bench-cards-row" id="opt-bench-cards"></div>
+            </div>
+          </div>
+
+          <!-- Right: Optimization Explainability -->
+          <div class="flex-col gap-4">
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">💡 Why Was This Squad Selected?</span>
+              </div>
+              <div id="opt-explain-content">
+                <p class="panel-desc" style="line-height: 1.6; font-size: 13px; color: #cbd5e1;">
+                  The mathematical solver evaluated all 626 Premier League players under the <strong>£100.0m salary cap</strong> and <strong>max 3 players per club</strong> constraints.
+                </p>
+                <ul style="margin: 12px 0 0 18px; font-size: 12px; color: #94a3b8; line-height: 1.7;">
+                  <li><strong style="color:#fff;">Haaland Ingestion (£15.5m):</strong> Budget enablers (Ajayi £4.1m, Sangaré £5.6m, Groß £5.5m) allow fitting Haaland (8.83 EP) as captain.</li>
+                  <li><strong style="color:#fff;">Bruno Fernandes (£12.0m):</strong> Retained as vice-captain (8.60 EP) after his 23-pt GW2 haul.</li>
+                  <li><strong style="color:#fff;">Form Defense Stack:</strong> Hull (Tzolakis, Ajayi) and Brighton (De Cuyper) provide balanced value while anchored to prior regression.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">⚖️ Key Trade-offs & Alternatives</span>
+              </div>
+              <div style="font-size: 12px; color: #cbd5e1; line-height: 1.6;">
+                <div style="margin-bottom: 10px; padding: 10px; background: #090a0f; border-radius: 8px; border: 1px solid var(--border-color);">
+                  <strong style="color:#38bdf8;">Why Haaland Captain (8.83 EP)?</strong>
+                  <p style="color:#94a3b8; margin: 4px 0 0 0; font-size: 11.5px;">
+                    Haaland faces Coventry City at home with elite goal expectancy, yielding the highest captaincy value ($17.66\text{ Captained EP}$).
+                  </p>
+                </div>
+                <div style="padding: 10px; background: #090a0f; border-radius: 8px; border: 1px solid var(--border-color);">
+                  <strong style="color:#38bdf8;">Why 3-5-2 formation?</strong>
+                  <p style="color:#94a3b8; margin: 4px 0 0 0; font-size: 11.5px;">
+                    Pairing Haaland with Alexander Isak (£9.0m) capitalizes on attacking volume while 5 midfielders optimize point-per-million returns.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- VIEW 2: MY TEAM (FULLY INTERACTIVE SQUAD BUILDER)             -->
+      <!-- ============================================================ -->
+      <section id="view-my-team" class="tab-view-content" style="display: none;">
+        
+        <!-- Live KPI Metrics & Rule Tracking -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Drafted Starting Points</div>
+            <div class="kpi-value" id="myteam-kpi-points" style="color:#38bdf8;">0.00 pts</div>
+            <div class="kpi-subtext" id="myteam-kpi-subpoints">Captain: Not Set</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Remaining Budget</div>
+            <div class="kpi-value" id="myteam-kpi-budget" style="color:#10b981;">£100.0m</div>
+            <div class="kpi-subtext" id="myteam-kpi-spent">Spent: £0.0m / £100.0m</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Squad Composition</div>
+            <div class="kpi-value" id="myteam-kpi-count">0 / 15</div>
+            <div class="kpi-subtext" id="myteam-kpi-poscounts">GK: 0/2 • DEF: 0/5 • MID: 0/5 • FWD: 0/3</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Squad Rule Compliance</div>
+            <div class="kpi-value" id="myteam-kpi-status" style="color:#f59e0b; font-size: 15px;">⚠ Incomplete (0/15)</div>
+            <div class="kpi-subtext" id="myteam-kpi-clubstatus">Max 3 per club: OK</div>
+          </div>
+        </div>
+
+        <!-- Quick Actions & Formation Bar -->
+        <div class="panel" style="padding: 14px 20px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; font-family: var(--font-mono);">Starting Formation:</span>
+            <button class="btn btn-secondary myteam-form-btn active" onclick="setMyTeamFormation('3-5-2')">3-5-2</button>
+            <button class="btn btn-secondary myteam-form-btn" onclick="setMyTeamFormation('3-4-3')">3-4-3</button>
+            <button class="btn btn-secondary myteam-form-btn" onclick="setMyTeamFormation('4-4-2')">4-4-2</button>
+            <button class="btn btn-secondary myteam-form-btn" onclick="setMyTeamFormation('4-3-3')">4-3-3</button>
+            <button class="btn btn-secondary myteam-form-btn" onclick="setMyTeamFormation('4-5-1')">4-5-1</button>
+            <button class="btn btn-secondary myteam-form-btn" onclick="setMyTeamFormation('5-3-2')">5-3-2</button>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary" onclick="autoOptimizeMyTeam()">
+              ⚡ Auto-Optimize Starting XI
+            </button>
+            <button class="btn btn-secondary" onclick="loadSampleSquad()">
+              📋 Load Sample Squad
+            </button>
+            <button class="btn btn-danger" onclick="clearMyTeam()">
+              🗑️ Clear Squad
+            </button>
+          </div>
+        </div>
+
+        <div class="grid-2col">
+          <!-- Left: Tactical Pitch & Bench -->
+          <div>
+            <div class="pitch-wrapper">
+              <div class="pitch-markings">
+                <div class="pitch-center-circle"></div>
+                <div class="pitch-half-line"></div>
+              </div>
+
+              <!-- Positional Starting XI Rows -->
+              <div class="pitch-row" id="myteam-row-gk"></div>
+              <div class="pitch-row" id="myteam-row-def"></div>
+              <div class="pitch-row" id="myteam-row-mid"></div>
+              <div class="pitch-row" id="myteam-row-fwd"></div>
+            </div>
+
+            <!-- Bench Dugout -->
+            <div class="bench-dugout">
+              <div class="bench-header">
+                <span>Substitutes / Bench Depth (4 Slots)</span>
+                <span>Click slot to swap / set captain</span>
+              </div>
+              <div class="bench-cards-row" id="myteam-bench-cards"></div>
+            </div>
+          </div>
+
+          <!-- Right: Searchable Player Pool & Picker -->
+          <div>
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">🔍 Search & Add 2026/27 Players</span>
+                <span style="font-size: 11px; font-family: var(--font-mono); color: #38bdf8;" id="myteam-picker-filter-hint">Showing Available Players</span>
+              </div>
+
+              <!-- Search Filters -->
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+                <input 
+                  type="text" 
+                  id="myteam-search-input"
+                  class="picker-input" 
+                  placeholder="Search player name or club (e.g. Saka, Haaland, Liverpool)..."
+                  oninput="renderMyTeamPicker()"
+                >
+                
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <button class="btn btn-secondary myteam-pos-filter active" onclick="setMyTeamPosFilter('all')">All</button>
+                  <button class="btn btn-secondary myteam-pos-filter" onclick="setMyTeamPosFilter(1)">GK</button>
+                  <button class="btn btn-secondary myteam-pos-filter" onclick="setMyTeamPosFilter(2)">DEF</button>
+                  <button class="btn btn-secondary myteam-pos-filter" onclick="setMyTeamPosFilter(3)">MID</button>
+                  <button class="btn btn-secondary myteam-pos-filter" onclick="setMyTeamPosFilter(4)">FWD</button>
+                </div>
+              </div>
+
+              <!-- Live Player Picker Results List -->
+              <div id="myteam-picker-results" style="max-height: 420px; overflow-y: auto; background: #090a0f; border: 1px solid var(--border-color); border-radius: 8px;">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Captaincy Selector Panel -->
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">👑 Captain & Vice-Captain Selector</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                  <label style="font-size: 11px; text-transform: uppercase; color: #f59e0b; font-weight: 700;">Captain (2x Points)</label>
+                  <select id="myteam-select-captain" class="picker-input" style="margin-top: 4px;" onchange="setCaptainById(parseInt(this.value))">
+                    <!-- Populated dynamically -->
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Vice-Captain</label>
+                  <select id="myteam-select-vice" class="picker-input" style="margin-top: 4px;" onchange="setViceCaptainById(parseInt(this.value))">
+                    <!-- Populated dynamically -->
+                  </select>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- VIEW 3: PLAYER SCOUTING                                      -->
+      <!-- ============================================================ -->
+      <section id="view-scouting" class="tab-view-content" style="display: none;">
+        
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🔍 Player Scouting & Multi-Dimensional Ratings</span>
+          </div>
+
+          <!-- Filter Controls -->
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+            <input 
+              type="text" 
+              class="picker-input" 
+              placeholder="Search player name or team..." 
+              style="max-width: 300px;"
+              oninput="state.scoutingFilter.search = this.value; renderScouting();"
+            >
+            <select 
+              class="picker-input" 
+              style="max-width: 160px;"
+              onchange="state.scoutingFilter.pos = this.value; renderScouting();"
+            >
+              <option value="all">All Positions</option>
+              <option value="1">Goalkeepers (GK)</option>
+              <option value="2">Defenders (DEF)</option>
+              <option value="3">Midfielders (MID)</option>
+              <option value="4">Forwards (FWD)</option>
+            </select>
+          </div>
+
+          <div class="grid-3col" id="scouting-players-grid"></div>
+        </div>
+
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- VIEW 4: PLAYER COMPARISON                                    -->
+      <!-- ============================================================ -->
+      <section id="view-comparison" class="tab-view-content" style="display: none;">
+        
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">⚔️ Head-to-Head Player Comparison</span>
+          </div>
+
+          <div class="grid-2col" style="margin-bottom: 20px;">
+            <div class="panel" id="comp-card-a" style="background:#090a0f;"></div>
+            <div class="panel" id="comp-card-b" style="background:#090a0f;"></div>
+          </div>
+
+          <div class="panel" id="comp-verdict-banner" style="background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.25);">
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- VIEW 5: DECISION SIMULATOR                                   -->
+      <!-- ============================================================ -->
+      <section id="view-simulator" class="tab-view-content" style="display: none;">
+        
+        <div class="grid-2col">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">🔄 Transfer Intervention Simulator</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div>
+                <label style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Transfer Out</label>
+                <select class="picker-input" style="margin-top: 4px;" onchange="state.simOutPlayer = PLAYERS.find(p=>p.id == this.value); renderSimulator();">
+                  <option value="30">B. Fernandes (£12.0m)</option>
+                  <option value="50">Thiago (£8.0m)</option>
+                  <option value="36">Rice (£7.5m)</option>
+                  <option value="37">Anderson (£6.4m)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Transfer In</label>
+                <select class="picker-input" style="margin-top: 4px;" onchange="state.simInPlayer = PLAYERS.find(p=>p.id == this.value); renderSimulator();">
+                  <option value="38">Salah (£12.5m)</option>
+                  <option value="52">Haaland (£15.5m)</option>
+                  <option value="32">Palmer (£9.6m)</option>
+                  <option value="31">Cherki (£7.6m)</option>
+                  <option value="51">João Pedro (£7.6m)</option>
+                </select>
+              </div>
+
+              <div id="sim-verdict-box" style="margin-top: 8px;"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">📊 Simulated Points Delta</span>
+            </div>
+
+            <div class="kpi-grid">
+              <div class="kpi-card" style="background:#090a0f;">
+                <div class="kpi-label">Expected Points Impact</div>
+                <div class="kpi-value" id="sim-pt-delta" style="color:#10b981;">+0.90 pts</div>
+              </div>
+              <div class="kpi-card" style="background:#090a0f;">
+                <div class="kpi-label">Budget Delta</div>
+                <div class="kpi-value" id="sim-cost-delta">+£0.5m</div>
+              </div>
+            </div>
+
+            <p style="font-size: 12px; color: #94a3b8; line-height: 1.6;">
+              The decision simulator computes the marginal opportunity cost of manual transfer adjustments against the baseline global mathematical optimum.
+            </p>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- VIEW 6: MODEL LEARNING REPORT                                -->
+      <!-- ============================================================ -->
+      <section id="view-learning-report" class="tab-view-content" style="display: none;">
+        
+        <div class="panel" style="border-left: 4px solid #38bdf8;">
+          <h2 style="font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 6px;">
+            📈 Pre-Season vs. Gameweeks 1 & 2 Learning Report
+          </h2>
+          <p style="font-size: 13px; color: #cbd5e1; line-height: 1.6; max-width: 800px;">
+            Evaluating what the <strong>57.97-point Pre-Season Baseline</strong> projected, what actually happened on the pitch, and what statistical lessons the decision support system incorporates.
+          </p>
+        </div>
+
+        <!-- Executive Summary Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Pre-Season Baseline Proj</div>
+            <div class="kpi-value" style="color:#fff;">57.97 pts</div>
+            <div class="kpi-subtext">Starting XI Proj: 56.67</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Actual GW1 Outcome</div>
+            <div class="kpi-value" style="color:#f59e0b;">41.0 pts</div>
+            <div class="kpi-subtext">-15.67 pts (-27.6% variance)</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Actual GW2 Outcome</div>
+            <div class="kpi-value" style="color:#10b981;">90.0 pts</div>
+            <div class="kpi-subtext">+33.33 pts (+58.8% explosion)</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">2-GW Realized Total</div>
+            <div class="kpi-value" style="color:#38bdf8;">131.0 pts</div>
+            <div class="kpi-subtext">Average: 65.5 pts / GW</div>
+          </div>
+        </div>
+
+        <!-- Model vs Top 10K Benchmark Section -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🏆 Model vs. Global Top 10K Benchmark</span>
+            <span style="font-size: 11px; font-family: var(--font-mono); color: #38bdf8;">Official 2026/27 FPL Data</span>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; text-align: left; font-size: 12px; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-family: var(--font-mono); font-size: 11px;">
+                  <th style="padding: 10px 12px;">Gameweek</th>
+                  <th style="padding: 10px 12px; text-align: right;">Model Predicted XI</th>
+                  <th style="padding: 10px 12px; text-align: right;">Top 10K Average</th>
+                  <th style="padding: 10px 12px; text-align: right;">Diff vs Top 10K</th>
+                  <th style="padding: 10px 12px; text-align: right;">Actual Model XI</th>
+                  <th style="padding: 10px 12px; text-align: right;">Prediction Error</th>
+                  <th style="padding: 10px 12px; text-align: center;">Status</th>
+                </tr>
+              </thead>
+              <tbody style="font-family: var(--font-mono);">
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                  <td style="padding: 10px 12px; font-weight: 700; color: #fff;">Gameweek 1</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #38bdf8;">56.67 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #fbbf24;">80.16 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #f87171; font-weight: 700;">-23.49 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #fff;">41.00 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #f87171;">-15.67 pts (-27.6%)</td>
+                  <td style="padding: 10px 12px; text-align: center;"><span style="color: #10b981; font-size: 10.5px; font-weight: 700;">✓ Completed</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                  <td style="padding: 10px 12px; font-weight: 700; color: #fff;">Gameweek 2</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #38bdf8;">52.10 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #fbbf24;">125.26 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #f87171; font-weight: 700;">-73.16 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #fff;">90.00 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #10b981; font-weight: 700;">+37.90 pts (+72.7%)</td>
+                  <td style="padding: 10px 12px; text-align: center;"><span style="color: #10b981; font-size: 10.5px; font-weight: 700;">✓ Completed</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.02); font-weight: 700;">
+                  <td style="padding: 10px 12px; color: #fff;">2-GW Cumulative</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #38bdf8;">108.77 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #fbbf24;">205.43 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #f87171;">-96.66 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #fff;">131.00 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #10b981;">+22.23 pts (+20.4%)</td>
+                  <td style="padding: 10px 12px; text-align: center;"><span style="color: #10b981; font-size: 10.5px;">✓ Evaluated</span></td>
+                </tr>
+                <tr style="color: #94a3b8;">
+                  <td style="padding: 10px 12px; font-weight: 700; color: #38bdf8;">Gameweek 3</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #38bdf8; font-weight: 700;">66.51 pts</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #64748b;">Pending</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #64748b;">Pending</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #64748b;">Pending</td>
+                  <td style="padding: 10px 12px; text-align: right; color: #64748b;">Pending</td>
+                  <td style="padding: 10px 12px; text-align: center;"><span style="color: #38bdf8; font-size: 10.5px; font-weight: 700;">⏳ Active Horizon</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Methodology Note -->
+          <div style="margin-top: 14px; padding: 12px 14px; background: #090a0f; border-radius: 8px; border: 1px solid var(--border-color); font-size: 11.5px; color: #94a3b8; line-height: 1.6;">
+            <strong style="color: #cbd5e1;">📌 Methodology & Benchmark Definition:</strong>
+            <p style="margin: 4px 0 0 0;">
+              The <strong>Top 10K Benchmark</strong> represents the empirical average points achieved by the top 10,000 highest-ranked managers globally in the official 2026/27 FPL Overall League (League ID 314). In GW1–2, the Top 10K cohort is heavily driven by early chip usage (814K Bench Boosts and 250K Triple Captains played in GW1; 338K Bench Boosts in GW2) and extreme variance in captaincy hauls. Unlike the global player average (50 pts in GW1, 79 pts in GW2), this benchmark measures the model against the upper competitive ceiling. Gameweek 3 Top 10K results are marked as <strong>Pending</strong> until all upcoming GW3 fixtures have finished.
+            </p>
+          </div>
+        </div>
+
+        <!-- What Changed 4-stage Timeline -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🔄 Four-Stage Learning Progression</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+            <div style="background:#090a0f; padding:16px; border-radius:10px; border:1px solid var(--border-color);">
+              <span style="color:#38bdf8; font-size:11px; font-weight:700; font-family:var(--font-mono); text-transform:uppercase;">Stage 1: Pre-Season Prior</span>
+              <h4 style="color:#fff; font-size:14px; margin:4px 0 6px 0;">Historical Anchor</h4>
+              <p style="font-size:12px; color:#94a3b8; line-height:1.5; margin:0;">
+                Heavy 5-midfield structure anchored by Bruno Fernandes (£12.0m) and £6.0m defenders.
+              </p>
+            </div>
+
+            <div style="background:#090a0f; padding:16px; border-radius:10px; border:1px solid var(--border-color);">
+              <span style="color:#f59e0b; font-size:11px; font-weight:700; font-family:var(--font-mono); text-transform:uppercase;">Stage 2: GW1 Evidence</span>
+              <h4 style="color:#fff; font-size:14px; margin:4px 0 6px 0;">Finishing Slump (41 pts)</h4>
+              <p style="font-size:12px; color:#94a3b8; line-height:1.5; margin:0;">
+                Captain Fernandes blanked (4 pts); Thiago generated 0.64 xG but scored 0; CDMs hit low floor.
+              </p>
+            </div>
+
+            <div style="background:#090a0f; padding:16px; border-radius:10px; border:1px solid var(--border-color);">
+              <span style="color:#10b981; font-size:11px; font-weight:700; font-family:var(--font-mono); text-transform:uppercase;">Stage 3: GW2 Evidence</span>
+              <h4 style="color:#fff; font-size:14px; margin:4px 0 6px 0;">Haul Explosion (90 pts)</h4>
+              <p style="font-size:12px; color:#94a3b8; line-height:1.5; margin:0;">
+                Fernandes (C) scored 46 captained points (hat-trick + assist); Gibbs-White (13 pts) hauled.
+              </p>
+            </div>
+
+            <div style="background:#090a0f; padding:16px; border-radius:10px; border:1px solid var(--border-color);">
+              <span style="color:#38bdf8; font-size:11px; font-weight:700; font-family:var(--font-mono); text-transform:uppercase;">Stage 4: GW3 Model Update</span>
+              <h4 style="color:#fff; font-size:14px; margin:4px 0 6px 0;">66.51 EP Lineup</h4>
+              <p style="font-size:12px; color:#94a3b8; line-height:1.5; margin:0;">
+                60% Pre-season Prior / 40% Observed 2026/27. Ingests Haaland (£15.5m) enabled by budget defense.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4-Dimension Learning Breakdown -->
+        <div class="grid-2col">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">🎯 1. Genuine Evidence vs. Outcome Noise</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px; font-size:12px;">
+              <div style="background:#090a0f; padding:12px; border-radius:8px; border-left:3px solid #10b981;">
+                <strong style="color:#fff;">Thiago (4.60 EP Proj → 2 pts Realized, 1.80 xG)</strong>
+                <p style="color:#94a3b8; margin:4px 0 0 0;">
+                  <strong>Outcome Noise:</strong> High underlying chance creation (1.80 xG) proves the selection process was sound. Finishing variance explains the low score, not structural failure.
+                </p>
+              </div>
+              <div style="background:#090a0f; padding:12px; border-radius:8px; border-left:3px solid #ef4444;">
+                <strong style="color:#fff;">Declan Rice & Anderson (~5.0 EP Proj → 5 pts Total, 0.07 xG)</strong>
+                <p style="color:#94a3b8; margin:4px 0 0 0;">
+                  <strong>Genuine Model Error:</strong> Low xG (0.07) confirms deep CDMs lack open-play attacking ceiling. The model has corrected by favoring attacking wingers.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">🛡️ 2. Promoted Defense Caution (Hull / Tzolakis)</span>
+            </div>
+            <div style="font-size:12px; color:#cbd5e1; line-height:1.6;">
+              <p style="margin-bottom:10px;">
+                <strong style="color:#f59e0b;">● Small-Sample Run (20 pts each):</strong> Tzolakis, Ajayi, and Egan registered back-to-back clean sheets across GW1 & GW2.
+              </p>
+              <div style="background:#090a0f; padding:12px; border-radius:8px; border:1px solid rgba(245,158,11,0.25);">
+                <span style="font-size:10px; font-weight:700; color:#f59e0b; font-family:var(--font-mono); text-transform:uppercase;">Statistical Guardrail:</span>
+                <p style="color:#94a3b8; margin:4px 0 0 0; font-size:11.5px;">
+                  The model anchors 60% of their projection to the pre-season prior to prevent over-indexing on an unsustainable 100% clean-sheet rate from a newly promoted side.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2col">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">⏱️ 3. Playing Roles & Minutes Evolution</span>
+            </div>
+            <div style="font-size:12px; color:#cbd5e1; line-height:1.6;">
+              <p style="margin-bottom:6px;">
+                <strong style="color:#fff;">Nailed Starters:</strong> Calafiori (170 min), De Cuyper (167 min), and Sangaré (165 min) logged consecutive starts, boosting their starting probability to 95%+.
+              </p>
+              <p style="margin:0;">
+                <strong style="color:#ef4444;">Bench Strikers Downgraded:</strong> Emegha (0 min) and Destan (0 min) have been down-weighted from 2.25 EP to 0.50 EP after failing to register minutes.
+              </p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">🗓️ 4. GW3 Fixture Difficulty Matrix</span>
+            </div>
+            <div style="font-size:12px; color:#cbd5e1; line-height:1.6;">
+              <p style="margin-bottom:6px;">
+                <strong style="color:#38bdf8;">Linear FDR Calibration:</strong> $1.0 - (\text{Difficulty} - 3) \times 0.15$
+              </p>
+              <p style="margin:0; color:#94a3b8;">
+                Man City (vs Coventry City home, FDR 2) and Arsenal (vs Chelsea home, FDR 4) provide active setups for Haaland and Calafiori.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- VIEW 7: FPL ACADEMY                                          -->
+      <!-- ============================================================ -->
+      <section id="view-academy" class="tab-view-content" style="display: none;">
+        
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🎓 FPL Analytics Academy: Core Decision Concepts</span>
+          </div>
+
+          <div class="grid-2col">
+            <div class="panel" style="background:#090a0f;">
+              <h4 style="color:#38bdf8; font-size:14px; margin-bottom:6px;">1. Expected Points (EP)</h4>
+              <p style="font-size:12px; color:#94a3b8; line-height:1.6;">
+                The mathematical mean of fantasy points a player is projected to score in a gameweek, combining playing time, goal/assist equity, clean sheet odds, and fixture difficulty.
+              </p>
+            </div>
+
+            <div class="panel" style="background:#090a0f;">
+              <h4 style="color:#38bdf8; font-size:14px; margin-bottom:6px;">2. Points Per Million (PPM / Value)</h4>
+              <p style="font-size:12px; color:#94a3b8; line-height:1.6;">
+                The capital efficiency of an asset. Budget enablers scoring 4.5 EP at £5.0m offer a 0.90 PPM, allowing you to fund premium captaincy anchors.
+              </p>
+            </div>
+
+            <div class="panel" style="background:#090a0f;">
+              <h4 style="color:#38bdf8; font-size:14px; margin-bottom:6px;">3. Opportunity Cost</h4>
+              <p style="font-size:12px; color:#94a3b8; line-height:1.6;">
+                The points sacrificed across your remaining 10 starting spots when you tie up £15.5m in a single premium player.
+              </p>
+            </div>
+
+            <div class="panel" style="background:#090a0f;">
+              <h4 style="color:#38bdf8; font-size:14px; margin-bottom:6px;">4. Process vs. Outcome</h4>
+              <p style="font-size:12px; color:#94a3b8; line-height:1.6;">
+                Evaluating players based on underlying repeatable metrics (shots in box, xG, xA) rather than noisy one-off deflections or flukey penalty saves.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- Player Details Modal -->
+    <div id="player-modal" class="modal-backdrop">
+      <div class="modal-card">
+        <button class="modal-close-btn" onclick="closeModal('player-modal')">×</button>
+        <div id="player-modal-content"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="script.js"></script>
+</body>
+</html>

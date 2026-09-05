@@ -24,6 +24,7 @@ import { generateOptimizationExplanation } from './utils/explainabilityEngine';
 import type { OptimizationExplanation } from './utils/explainabilityEngine';
 import { comparePlayers, simulateDecision } from './utils/decisionSimulator';
 import { PlayerPicker } from './components/PlayerPicker';
+import { ModelLearningReport } from './components/ModelLearningReport';
 import { calculateChipVerdicts } from './utils/chipDecisionEngine';
 import type { UserChipState } from './utils/chipDecisionEngine';
 
@@ -127,7 +128,7 @@ function App() {
   };
 
   // FPL Decision Dashboard state additions
-  const [mode, setMode] = useState<'optimal' | 'my-team' | 'scouting' | 'comparison' | 'simulation'>('optimal');
+  const [mode, setMode] = useState<'optimal' | 'my-team' | 'scouting' | 'comparison' | 'simulation' | 'learning-report'>('optimal');
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [myTeamSquad, setMyTeamSquad] = useState<Player[]>(() => {
     try {
@@ -291,12 +292,22 @@ function App() {
         throw new Error('Incomplete fixtures data received. Response is not an array.');
       }
 
-      const currentEvent = bootstrapData.events.find((e: any) => e.is_current) 
-                        || bootstrapData.events.find((e: any) => e.is_next) 
-                        || bootstrapData.events[0];
+      const currentEvent = bootstrapData.events.find((e: any) => e.is_current);
+      const nextEvent = bootstrapData.events.find((e: any) => e.is_next);
       
-      const gwId = currentEvent ? currentEvent.id : 1;
-      const gwName = currentEvent ? currentEvent.name : `Gameweek ${gwId}`;
+      let targetEvent = currentEvent;
+      if (currentEvent) {
+        const currentEventFixtures = fixturesData.filter((f: any) => f.event === currentEvent.id);
+        const allCurrentStarted = currentEventFixtures.length > 0 && currentEventFixtures.every((f: any) => f.started === true || f.finished === true || f.finished_provisional === true);
+        if (allCurrentStarted && nextEvent) {
+          targetEvent = nextEvent;
+        }
+      } else {
+        targetEvent = nextEvent || bootstrapData.events[0];
+      }
+      
+      const gwId = targetEvent ? targetEvent.id : 1;
+      const gwName = targetEvent ? targetEvent.name : `Gameweek ${gwId}`;
       setGameweekName(gwName);
 
       const projection = calculateProjectedPoints(
@@ -923,6 +934,16 @@ function App() {
                 className={`mode-toggle-btn ${mode === 'simulation' ? 'active' : ''}`}
               >
                 Simulator
+              </button>
+              <button
+                onClick={() => {
+                  setMode('learning-report');
+                  setError(null);
+                }}
+                className={`mode-toggle-btn ${mode === 'learning-report' ? 'active' : ''}`}
+                style={mode === 'learning-report' ? { background: '#38bdf8', color: '#090a0f', fontWeight: 'bold' } : {}}
+              >
+                Model Learning Report
               </button>
             </div>
             <button 
@@ -2052,6 +2073,17 @@ function App() {
               )}
             </div>
           </div>
+        )}
+
+        {mode === 'learning-report' && !loading && !error && (
+          <ModelLearningReport 
+            allPlayers={allPlayers}
+            currentResult={activeResult}
+            onNavigateToMode={(m) => {
+              setMode(m);
+              setError(null);
+            }}
+          />
         )}
 
         {/* Loading State */}

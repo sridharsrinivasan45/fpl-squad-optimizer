@@ -2,7 +2,7 @@
 
 :root {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
+  line-height: 1.6;
   font-weight: 400;
 
   color-scheme: dark;
@@ -90,7 +90,7 @@ body {
 .pitch-container {
   width: 100%;
   max-width: 800px;
-  height: 520px;
+  height: 600px; /* increased from 520px */
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 16px;
@@ -101,7 +101,7 @@ body {
 
 @media (max-width: 640px) {
   .pitch-container {
-    height: 400px;
+    height: 480px; /* increased from 400px */
   }
 }
 
@@ -179,7 +179,7 @@ body {
 
 /* Player Pitch Card */
 .pitch-player-card {
-  width: 78px;
+  width: 96px; /* increased from 78px */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -194,8 +194,8 @@ body {
 }
 
 .pitch-shirt {
-  width: 40px;
-  height: 40px;
+  width: 44px; /* increased from 40px */
+  height: 44px; /* increased from 40px */
   border-radius: 50%;
   background: var(--bg-card-hover);
   border: 1px solid var(--border-color);
@@ -204,7 +204,7 @@ body {
   justify-content: center;
   color: var(--secondary);
   font-weight: 600;
-  font-size: 10px;
+  font-size: 11px;
   position: relative;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: none;
@@ -238,16 +238,16 @@ body {
 /* Badges */
 .badge-c, .badge-vc, .badge-warning {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 16px;
-  height: 16px;
+  top: -8px; /* adjusted from -6px */
+  right: -8px; /* adjusted from -6px */
+  width: 20px; /* increased from 16px */
+  height: 20px; /* increased from 16px */
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
-  font-weight: bold;
+  font-size: 11px; /* increased from 9px */
+  font-weight: 800; /* made bold */
   border: 1px solid var(--bg-main);
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
@@ -265,7 +265,7 @@ body {
 .badge-warning {
   background-color: var(--warning);
   color: #000;
-  left: -6px;
+  left: -8px;
   right: auto;
 }
 
@@ -275,28 +275,28 @@ body {
 }
 
 .pitch-player-name {
-  background-color: rgba(15, 17, 26, 0.9);
+  background-color: rgba(15, 17, 26, 0.95);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 2px 6px;
-  font-size: 10px;
-  font-weight: 500;
+  padding: 4px 8px; /* increased padding */
+  font-size: 12px; /* increased font-size */
+  font-weight: 600; /* slightly bolder for legibility */
   color: #f8fafc;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  max-width: 110%; /* allow slightly more width to prevent truncation */
   display: block;
 }
 
 .pitch-player-points {
-  font-size: 9px;
+  font-size: 12px; /* increased font-size */
   font-weight: 700;
   color: var(--primary);
-  background-color: rgba(15, 17, 26, 0.9);
+  background-color: rgba(15, 17, 26, 0.95);
   border-radius: 4px;
-  padding: 1px 4px;
-  margin-top: 2px;
+  padding: 2px 6px; /* increased padding */
+  margin-top: 4px;
   display: inline-block;
   font-family: monospace;
 }
@@ -431,16 +431,15 @@ table.custom-table tr:hover {
 }
 
 /* Spacing & Gap */
-.gap-1\.5 { gap: 6px; }
-.gap-2 { gap: 8px; }
-.gap-3 { gap: 12px; }
-.gap-4 { gap: 16px; }
-.gap-6 { gap: 24px; }
-.gap-8 { gap: 32px; }
+.gap-1\.5 { gap: 8px; }
+.gap-2 { gap: 12px; }
+.gap-3 { gap: 16px; }
+.gap-4 { gap: 20px; }
+.gap-6 { gap: 28px; }
+.gap-8 { gap: 36px; }
 .mx-auto { margin-left: auto; margin-right: auto; }
 .m-0 { margin: 0; }
 .mt-0\.5 { margin-top: 2px; }
-.-mt-1 { margin-top: -4px; }
 .mt-1 { margin-top: 4px; }
 .mt-2 { margin-top: 8px; }
 .mt-4 { margin-top: 16px; }
@@ -456,8 +455,8 @@ table.custom-table tr:hover {
 
 /* Padding */
 .p-2 { padding: 8px; }
-.p-3 { padding: 12px; }
-.p-4 { padding: 16px; }
+.p-3 { padding: 14px; } /* increased from 12px */
+.p-4 { padding: 20px; } /* increased from 16px */
 .px-1 { padding-left: 4px; padding-right: 4px; }
 .px-3 { padding-left: 12px; padding-right: 12px; }
 .px-4 { padding-left: 16px; padding-right: 16px; }
@@ -465,7 +464,7 @@ table.custom-table tr:hover {
 .px-8 { padding-left: 32px; padding-right: 32px; }
 .py-1\.5 { padding-top: 6px; padding-bottom: 6px; }
 .py-2 { padding-top: 8px; padding-bottom: 8px; }
-.py-3 { padding-top: 12px; padding-bottom: 12px; }
+.py-3 { padding-top: 14px; padding-bottom: 14px; } /* increased from 12px */
 .py-16 { padding-top: 64px; padding-bottom: 64px; }
 
 /* Sizing */
@@ -492,11 +491,29 @@ table.custom-table tr:hover {
 .text-sm { font-size: 14px; }
 .text-base { font-size: 16px; }
 .text-lg { font-size: 18px; }
-.text-2xl { font-size: 24px; }
+.text-xl { font-size: 20px; }
+.text-2xl { font-size: 28px; }
 .font-mono { font-family: monospace; }
 .uppercase { text-transform: uppercase; }
 .tracking-wider { letter-spacing: 0.05em; }
 .tracking-widest { letter-spacing: 0.1em; }
+
+/* Enforce minimum 12px readability on presentation screens for arbitrary brackets */
+.text-\[8px\] { font-size: 12px !important; }
+.text-\[9px\] { font-size: 12px !important; }
+.text-\[10px\] { font-size: 12px !important; }
+.text-\[11px\] { font-size: 12px !important; }
+.text-\[12px\] { font-size: 12px !important; }
+.text-\[13px\] { font-size: 13px !important; }
+.text-\[14px\] { font-size: 14px !important; }
+.text-\[15px\] { font-size: 15px !important; }
+.text-\[16px\] { font-size: 16px !important; }
+.text-\[18px\] { font-size: 18px !important; }
+.text-\[20px\] { font-size: 20px !important; }
+.text-\[24px\] { font-size: 24px !important; }
+.text-\[28px\] { font-size: 28px !important; }
+.text-\[30px\] { font-size: 30px !important; }
+.text-\[32px\] { font-size: 32px !important; }
 
 /* Colors & Backgrounds */
 .text-white { color: #ffffff; }
