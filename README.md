@@ -1,32 +1,78 @@
-# React + TypeScript + Vite
+# FPL Squad Optimizer
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+An AI-assisted Fantasy Premier League (FPL) decision-support system that combines player performance analysis, fixture difficulty, availability data, and mathematical optimization to recommend an optimal squad and Gameweek XI.
 
-Currently, two official plugins are available:
+## What It Does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Evaluates the full FPL player universe
+- Projects expected points for upcoming Gameweeks
+- Accounts for fixture difficulty and home/away advantage
+- Incorporates player availability, injuries, suspensions and doubtful status
+- Uses Integer Linear Programming (ILP) to optimize squad selection
+- Recommends an optimal Starting XI and bench
+- Supports custom team analysis and player comparisons
+- Benchmarks model projections against FPL performance benchmarks
+- Provides an interactive standalone dashboard
 
-## React Compiler
+## Key Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Squad Optimizer
+Finds the highest-projected 15-player squad subject to FPL squad and budget constraints.
 
-## Expanding the Oxlint configuration
+### Starting XI
+Determines the optimal formation and Starting XI based on projected Gameweek points.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+### Player Analysis
+Compare players using projected points, price, form, availability and fixture context.
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+### Availability & Injuries
+Integrates FPL availability data so injured, suspended and doubtful players are appropriately reflected in projections.
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### Interactive Dashboard
+The standalone prototype provides an interactive interface for squad building, player scouting and decision support.
+
+## Technology
+
+- React
+- TypeScript
+- Vite
+- JavaScript
+- Integer Linear Programming (ILP)
+- FPL API
+- HTML / CSS
+
+## Architecture
+
+```text
+FPL API
+   │
+   ▼
+Data Ingestion
+   │
+   ├── Player Data
+   ├── Fixtures
+   ├── Prices
+   └── Availability
+   │
+   ▼
+Projection Engine
+   │
+   ├── Historical Prior
+   ├── Current Form
+   ├── Fixture Difficulty
+   ├── Home/Away
+   └── Playing Probability
+   │
+   ▼
+ILP Optimization Engine
+   │
+   ├── Budget Constraints
+   ├── Squad Constraints
+   ├── Position Constraints
+   └── Club Constraints
+   │
+   ▼
+Optimal Squad & Starting XI
+   │
+   ▼
+Interactive Dashboard
