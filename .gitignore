@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+research/fpl-historical-data/
+
+research/fpl-historical-data/
+research/*.json
+!research/player-season-observations.json
