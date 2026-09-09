@@ -85,6 +85,12 @@ Feature completeness audits
 Duplicate-observation checks
 Historical model evaluation
 Comparison between the existing production model and proposed improvements
+Research Contribution
+The research focuses on a practical problem in FPL player projection: players enter the Premier League with very different amounts of historical information. A model that treats an established player with several seasons of evidence the same way as a new or recently promoted player may produce poorly calibrated projections.
+
+The project therefore investigates whether experience-aware priors, dynamically weighted historical information, recent form, and uncertainty estimates can improve player projections, particularly for players with limited Premier League history.
+
+The proposed methods will be evaluated against the existing production model using walk-forward, out-of-sample backtesting, with performance compared across player-experience cohorts and across seasons.
 3. Historical Dataset
 
 Historical Gameweek-level FPL data currently covers:
